@@ -9,7 +9,7 @@ GO ?= $(shell which go)
 export GOEXPERIMENT=nocoverageredesign
 
 .PHONY: test
-test: compose
+test:
 	$(GO) test -vet=off -tags='$(GOTAGS)' $(GOTESTFLAGS) -coverpkg="./..." -coverprofile=.coverprofile ./...
 	grep -v 'cmd' < .coverprofile > .covprof && mv .covprof .coverprofile
 	$(GO) tool cover -func=.coverprofile
