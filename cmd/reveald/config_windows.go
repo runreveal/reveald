@@ -7,10 +7,10 @@ import (
 	"log/slog"
 
 	"github.com/runreveal/kawa"
-	windowskawad "github.com/runreveal/reveald/internal/sources/windows"
-	"github.com/runreveal/reveald/internal/types"
 	"github.com/runreveal/kawa/x/windows"
 	"github.com/runreveal/lib/loader"
+	windowskawad "github.com/runreveal/reveald/internal/sources/windows"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 func init() {

@@ -5,8 +5,8 @@ import (
 	"io"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/reveald/internal/types"
 	"github.com/runreveal/kawa/x/printer"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 type Printer struct {

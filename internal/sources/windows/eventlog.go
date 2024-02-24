@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/reveald/internal/types"
 	"github.com/runreveal/kawa/x/windows"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 type EventLog struct {

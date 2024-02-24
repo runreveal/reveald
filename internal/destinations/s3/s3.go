@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/reveald/internal/types"
 	"github.com/runreveal/kawa/x/s3"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 type S3 struct {

@@ -7,6 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/runreveal/kawa"
+	"github.com/runreveal/kawa/x/mqtt"
+	"github.com/runreveal/kawa/x/s3"
+	"github.com/runreveal/lib/loader"
 	mqttDstkawad "github.com/runreveal/reveald/internal/destinations/mqtt"
 	"github.com/runreveal/reveald/internal/destinations/printer"
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
@@ -16,9 +19,6 @@ import (
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
 	"github.com/runreveal/reveald/internal/types"
-	"github.com/runreveal/kawa/x/mqtt"
-	"github.com/runreveal/kawa/x/s3"
-	"github.com/runreveal/lib/loader"
 	// We could register and configure these in a separate package
 	// using the init() function.
 	// That would make it easy to "dynamically" enable and disable them at

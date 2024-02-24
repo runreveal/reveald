@@ -11,8 +11,8 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/reveald/internal/types"
 	batch "github.com/runreveal/kawa/x/batcher"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 type Option func(*RunReveal)

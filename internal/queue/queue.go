@@ -7,9 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/reveald/internal/types"
 	"github.com/runreveal/kawa/x/multi"
 	"github.com/runreveal/lib/await"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 type Option func(*Queue)

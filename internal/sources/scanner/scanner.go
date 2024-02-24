@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/reveald/internal/types"
 	"github.com/runreveal/kawa/x/scanner"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 type Scanner struct {

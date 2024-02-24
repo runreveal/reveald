@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/runreveal/kawa"
-	"github.com/runreveal/reveald/internal/types"
 	"github.com/runreveal/kawa/x/mqtt"
+	"github.com/runreveal/reveald/internal/types"
 )
 
 type MQTT struct {
