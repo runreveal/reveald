@@ -1,6 +1,6 @@
 # Reveald
 
-reveald is a daemon for collecting system logs and metrics, powered by kawa.
+reveald is a daemon for collecting system logs and metrics, powered by [kawa](https://www.gokawa.dev).
 
 # Installation
 
