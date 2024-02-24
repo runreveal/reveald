@@ -1,0 +1,14 @@
+[Unit]
+Description=Reveald Collector
+After=network.target
+
+[Service]
+Type=simple
+# adjust the locations to your environment as necessary
+ExecStart=/usr/local/reveald run --config /etc/reveald/config.json
+MemoryMax=1G
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
