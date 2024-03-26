@@ -78,10 +78,9 @@ func (s *SyslogSource) Recv(ctx context.Context) (kawa.Message[types.Event], fun
 
 			msg := kawa.Message[types.Event]{
 				Value: types.Event{
-					Timestamp:   ts,
-					SourceType:  "syslog",
-					RawLog:      rawLog,
-					ContentType: s.cfg.ContentType,
+					EventTime:  ts,
+					SourceType: "syslog",
+					RawLog:     rawLog,
 				},
 			}
 			return msg, nil, nil

@@ -118,7 +118,7 @@ loop:
 		case s.msgC <- kawa.MsgAck[types.Event]{
 			Msg: kawa.Message[types.Event]{
 				Value: types.Event{
-					Timestamp:  ts,
+					EventTime:  ts,
 					SourceType: "journald",
 					RawLog:     bts,
 				},

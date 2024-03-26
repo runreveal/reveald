@@ -16,6 +16,7 @@ import (
 	s3kawad "github.com/runreveal/reveald/internal/destinations/s3"
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
+	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
 	"github.com/runreveal/reveald/internal/types"
@@ -31,6 +32,9 @@ func init() {
 	})
 	loader.Register("syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &SyslogConfig{}
+	})
+	loader.Register("nginx_syslog", func() loader.Builder[kawa.Source[types.Event]] {
+		return &NginxSyslogConfig{}
 	})
 	loader.Register("journald", func() loader.Builder[kawa.Source[types.Event]] {
 		return &JournaldConfig{}
@@ -71,6 +75,17 @@ func (c *SyslogConfig) Configure() (kawa.Source[types.Event], error) {
 	return syslog.NewSyslogSource(syslog.SyslogCfg{
 		Addr:        c.Addr,
 		ContentType: c.ContentType,
+	}), nil
+}
+
+type NginxSyslogConfig struct {
+	Addr string `json:"addr"`
+}
+
+func (c *NginxSyslogConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info("configuring nginx syslog")
+	return nginx_syslog.NewNginxSyslogSource(nginx_syslog.NginxSyslogCfg{
+		Addr: c.Addr,
 	}), nil
 }
 
