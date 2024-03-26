@@ -97,7 +97,7 @@ func (q *Queue) Run(ctx context.Context) error {
 		Destination: multiDst,
 		Handler:     kawa.Pipe[types.Event](),
 		// NOTE(alan): don't increase parallelism on this processor until we've
-		// verified thread safety thread-safe story.
+		// verified thread safety.
 	}, kawa.Parallelism(1))
 	if err != nil {
 		return err

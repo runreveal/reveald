@@ -40,7 +40,7 @@ func (s *EventLog) Recv(ctx context.Context) (kawa.Message[types.Event], func(),
 	eventMsg := kawa.Message[types.Event]{
 		Key: msg.Key,
 		Value: types.Event{
-			Timestamp:  msg.Value.System.TimeCreated.SystemTime,
+			EventTime:  msg.Value.System.TimeCreated.SystemTime,
 			SourceType: "eventlog",
 			RawLog:     rawLog,
 		},
