@@ -67,6 +67,7 @@ func New(opts ...Option) *RunReveal {
 	}
 
 	ret.batcher = batch.NewDestination[types.Event](ret,
+		batch.Raise[types.Event](),
 		batch.FlushLength(ret.batchSize),
 		batch.FlushFrequency(ret.flushFreq),
 		batch.FlushParallelism(2),
