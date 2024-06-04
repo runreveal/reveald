@@ -4,7 +4,7 @@ go 1.21.5
 
 require (
 	github.com/carlmjohnson/requests v0.23.4
-	github.com/runreveal/kawa v0.0.5
+	github.com/runreveal/kawa v0.1.0
 	github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c
 	github.com/runreveal/lib/loader v0.0.0-20231128193746-50c2ad68891c
 	github.com/spf13/cobra v1.7.0
@@ -33,7 +33,6 @@ require (
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
-	golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
