@@ -15,8 +15,9 @@ type Scanner struct {
 }
 
 func NewScanner(reader io.Reader) *Scanner {
+	rdr := io.NopCloser(reader)
 	return &Scanner{
-		wrapped: scanner.NewScanner(reader),
+		wrapped: scanner.NewScanner(rdr),
 	}
 }
 

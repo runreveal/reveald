@@ -19,7 +19,10 @@ type Event struct {
 	ReadOnly  bool              `json:"readOnly,omitempty"`
 	Resources []json.RawMessage `json:"resources,omitempty"`
 
-	RawLog []byte `json:"rawLog"`
+	// LogFormat describes the format of the log and indicates to the sourceType
+	// how to parse the raw log.  e.g. "jsonl/normalized"
+	LogFormat string `json:"logFormat"`
+	RawLog    []byte `json:"rawLog"`
 }
 
 type Actor struct {

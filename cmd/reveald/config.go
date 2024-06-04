@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/runreveal/reveald/internal/destinations/printer"
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
 	s3kawad "github.com/runreveal/reveald/internal/destinations/s3"
+	"github.com/runreveal/reveald/internal/sources/filewatch"
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
@@ -27,8 +29,12 @@ import (
 )
 
 func init() {
+	// ---------------Sources-------------------------
 	loader.Register("scanner", func() loader.Builder[kawa.Source[types.Event]] {
 		return &ScannerConfig{}
+	})
+	loader.Register("filewatch", func() loader.Builder[kawa.Source[types.Event]] {
+		return &FileConfig{}
 	})
 	loader.Register("syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &SyslogConfig{}
@@ -42,6 +48,8 @@ func init() {
 	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
 		return &MQTTSrcConfig{}
 	})
+
+	// ---------------Destinations-------------------------
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
 	})
@@ -63,6 +71,15 @@ type ScannerConfig struct {
 func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring scanner")
 	return scanner.NewScanner(os.Stdin), nil
+}
+
+type FileConfig struct {
+	Path string `json:"path"`
+}
+
+func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info(fmt.Sprintf("configuring filewatcher for: %s", c.Path))
+	return filewatch.NewWatcher(c.Path), nil
 }
 
 type SyslogConfig struct {

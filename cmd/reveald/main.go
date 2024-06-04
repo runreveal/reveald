@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"log/slog"
 
@@ -112,7 +113,7 @@ func NewRunCommand() *cobra.Command {
 				return err
 			}
 
-			w := await.New(await.WithSignals)
+			w := await.New(await.WithSignals, await.WithStopTimeout(30*time.Second))
 
 			// if config.Monitoring.Addr != "" {
 			// 	mux := http.NewServeMux()
