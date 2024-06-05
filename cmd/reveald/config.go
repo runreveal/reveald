@@ -79,7 +79,7 @@ type FileConfig struct {
 
 func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info(fmt.Sprintf("configuring filewatcher for: %s", c.Path))
-	return filewatch.NewWatcher(c.Path), nil
+	return filewatch.NewWatcher(filewatch.WithPath(c.Path)), nil
 }
 
 type SyslogConfig struct {
