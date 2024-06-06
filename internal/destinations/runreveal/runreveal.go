@@ -102,8 +102,6 @@ func (r *RunReveal) newReq() *requests.Builder {
 // Flush sends the given messages of type kawa.Message[type.Event] to the RunReveal api
 func (r *RunReveal) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
 
-	slog.Debug("sending batch to runreveal", "count", len(msgs))
-
 	batch := make([]json.RawMessage, len(msgs))
 	var err error
 	for i, msg := range msgs {

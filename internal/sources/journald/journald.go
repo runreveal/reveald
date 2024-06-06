@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"log/slog"
 
 	"github.com/runreveal/kawa"
+	"github.com/runreveal/reveald/internal"
 	"github.com/runreveal/reveald/internal/types"
 )
 
@@ -36,7 +38,7 @@ func (s *Journald) Run(ctx context.Context) error {
 
 func (s *Journald) recvLoop(ctx context.Context) error {
 	// Open file to check and save high watermark
-	hwmFile, err := os.OpenFile("/tmp/kawad-journald-hwm", os.O_RDWR|os.O_CREATE, os.FileMode(0644))
+	hwmFile, err := os.OpenFile(filepath.Join(internal.ConfigDir(), "kawad-journald-hwm"), os.O_RDWR|os.O_CREATE, os.FileMode(0644))
 	if err != nil {
 		return err
 	}

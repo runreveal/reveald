@@ -2,6 +2,7 @@ package filewatch
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -30,6 +31,18 @@ func WithPath(path string) Option {
 	}
 }
 
+func WithCommitInterval(d time.Duration) Option {
+	return func(w *Watcher) {
+		w.commitInterval = d
+	}
+}
+
+func WithHighWatermarkFile(fname string) Option {
+	return func(w *Watcher) {
+		w.highWatermarkFile = fname
+	}
+}
+
 type msgErr[T any] struct {
 	msg kawa.Message[T]
 	ack func()
@@ -46,8 +59,11 @@ type Watcher struct {
 	extension string
 	msgC      chan msgErr[types.Event]
 
-	mapLock sync.RWMutex
-	fmap    map[string]filePos
+	mapLock           sync.RWMutex
+	fmap              map[string]filePos
+	highWatermarkFile string
+	commitInterval    time.Duration
+	commitTicker      *time.Ticker
 }
 
 func NewWatcher(opts ...Option) *Watcher {
@@ -55,12 +71,13 @@ func NewWatcher(opts ...Option) *Watcher {
 		msgC: make(chan msgErr[types.Event]),
 		fmap: make(map[string]filePos),
 	}
-	// first determine if the path is a single file or a directory
-	// If it's a directory, monitor all files in the directory
-
 	for _, opt := range opts {
 		opt(w)
 	}
+	if w.commitInterval == 0 {
+		w.commitInterval = 5 * time.Second
+	}
+	w.commitTicker = time.NewTicker(w.commitInterval)
 	return w
 }
 
@@ -95,10 +112,55 @@ func (s *Watcher) savePosition(fname string, pos int) {
 	defer s.mapLock.Unlock()
 	// save the position of the files
 	if fpos, ok := s.fmap[fname]; ok {
-		s.fmap[fname] = filePos{file: fpos.file, pos: pos}
-		slog.Info(fmt.Sprintf("file %s position saved: %d", fname, pos))
+		// Only update the position if it is advancing in the file.
+		// There's a chance that lines will be processed out of order and we don't
+		// want to move our position in the file backwards in that case.
+		// The position being saved should represent where to start reading the
+		// next line in the given file as a byte offset.
+		if pos > fpos.pos {
+			s.fmap[fname] = filePos{file: fpos.file, pos: pos}
+		}
 	} else {
 		slog.Error(fmt.Sprintf("file %s not found in map.", fname))
+	}
+	if s.commitTicker != nil {
+		select {
+		case <-s.commitTicker.C:
+			s.persistOffsets()
+		default:
+		}
+	}
+}
+
+func (s *Watcher) persistOffsets() {
+	// open a temporary file
+	f, err := os.OpenFile(s.highWatermarkFile+".tmp", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error opening high watermark file: %s", s.highWatermarkFile))
+		return
+	}
+	defer f.Close()
+
+	tracker := make(map[string]int, len(s.fmap))
+	// write the offsets to the file
+	for fname, fpos := range s.fmap {
+		tracker[fname] = fpos.pos
+	}
+	bts, err := json.Marshal(tracker)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error marshalling offsets: %s", err))
+		return
+	}
+	_, err = f.Write(bts)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error writing to high watermark file: %s", s.highWatermarkFile))
+		return
+	}
+	// rename the temporary file to the high watermark file
+	err = os.Rename(s.highWatermarkFile+".tmp", s.highWatermarkFile)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error renaming high watermark file: %s", s.highWatermarkFile))
+		return
 	}
 }
 
@@ -133,22 +195,19 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("watcher: %w", err)
 		}
-		slog.Info(fmt.Sprintf("files in directory: %v", files))
 
 		for _, file := range files {
+
 			if file.IsDir() {
 				continue
 			}
-
 			fname := filepath.Join(s.path, file.Name())
-
 			if s.extension != "" && !strings.HasSuffix(fname, s.extension) {
 				continue
 			}
-
 			s.mapLock.Lock()
 			shouldOpen := false
-			// if the file is not in the map, add it
+
 			if cur, ok := s.fmap[fname]; ok {
 				newSt, err := os.Stat(fname)
 				if err != nil {
@@ -159,23 +218,24 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 					return fmt.Errorf("watcher: %w", err)
 				}
 				if !os.SameFile(newSt, curSt) {
+					slog.Debug(fmt.Sprintf("log rotation detected, opening new file: %s", fname))
 					cur.file.Close()
 					shouldOpen = true
 				}
 			} else {
+				// if the file is not in the map, add it
+				slog.Debug(fmt.Sprintf("new log file detected for read: %s", fname))
 				shouldOpen = true
-				slog.Info(fmt.Sprintf("file %s not found in map, adding it", fname))
 			}
 
+			// New file or file was rotated
 			if shouldOpen {
 				f, err := os.Open(fname)
 				if err != nil {
 					return fmt.Errorf("watcher: %w", err)
 				}
-
 				// open the file for processing
 				s.fmap[f.Name()] = filePos{file: f, pos: 0}
-
 				go func() {
 					// scan the file
 					err := scanUntilCancel(ctx, callback, f)
@@ -190,8 +250,8 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 			}
 			s.mapLock.Unlock()
 		}
-		time.Sleep(5 * time.Second)
 
+		time.Sleep(5 * time.Second)
 	}
 
 	// for {

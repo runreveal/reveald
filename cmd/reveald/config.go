@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"github.com/runreveal/kawa/x/mqtt"
 	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
+	"github.com/runreveal/reveald/internal"
 	mqttDstkawad "github.com/runreveal/reveald/internal/destinations/mqtt"
 	"github.com/runreveal/reveald/internal/destinations/printer"
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
@@ -78,8 +80,12 @@ type FileConfig struct {
 }
 
 func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
-	slog.Info(fmt.Sprintf("configuring filewatcher for: %s", c.Path))
-	return filewatch.NewWatcher(filewatch.WithPath(c.Path)), nil
+	slog.Info(fmt.Sprintf("configuring filewatcher for directory: %s", c.Path))
+	return filewatch.NewWatcher(
+		filewatch.WithPath(c.Path),
+		filewatch.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "watcher-hwm.json")),
+		filewatch.WithCommitInterval(5*time.Second),
+	), nil
 }
 
 type SyslogConfig struct {
