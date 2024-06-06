@@ -147,10 +147,27 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 			}
 
 			s.mapLock.Lock()
+			shouldOpen := false
 			// if the file is not in the map, add it
-			if _, ok := s.fmap[fname]; !ok {
+			if cur, ok := s.fmap[fname]; ok {
+				newSt, err := os.Stat(fname)
+				if err != nil {
+					return fmt.Errorf("watcher: %w", err)
+				}
+				curSt, err := cur.file.Stat()
+				if err != nil {
+					return fmt.Errorf("watcher: %w", err)
+				}
+				if !os.SameFile(newSt, curSt) {
+					cur.file.Close()
+					shouldOpen = true
+				}
+			} else {
+				shouldOpen = true
 				slog.Info(fmt.Sprintf("file %s not found in map, adding it", fname))
+			}
 
+			if shouldOpen {
 				f, err := os.Open(fname)
 				if err != nil {
 					return fmt.Errorf("watcher: %w", err)
