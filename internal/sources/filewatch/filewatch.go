@@ -109,7 +109,6 @@ func (s *Watcher) Run(ctx context.Context) error {
 
 func (s *Watcher) savePosition(fname string, pos int) {
 	s.mapLock.Lock()
-	defer s.mapLock.Unlock()
 	// save the position of the files
 	if fpos, ok := s.fmap[fname]; ok {
 		// Only update the position if it is advancing in the file.
@@ -123,6 +122,8 @@ func (s *Watcher) savePosition(fname string, pos int) {
 	} else {
 		slog.Error(fmt.Sprintf("file %s not found in map.", fname))
 	}
+	s.mapLock.Unlock()
+
 	if s.commitTicker != nil {
 		select {
 		case <-s.commitTicker.C:
@@ -143,19 +144,26 @@ func (s *Watcher) persistOffsets() {
 
 	tracker := make(map[string]int, len(s.fmap))
 	// write the offsets to the file
+	s.mapLock.RLock()
 	for fname, fpos := range s.fmap {
 		tracker[fname] = fpos.pos
 	}
+	s.mapLock.RUnlock()
+
 	bts, err := json.Marshal(tracker)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error marshalling offsets: %s", err))
 		return
 	}
+	bts = append(bts, '\n')
 	_, err = f.Write(bts)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error writing to high watermark file: %s", s.highWatermarkFile))
 		return
 	}
+
+	slog.Info(fmt.Sprintf("persisted offsets to high watermark file: %s", s.highWatermarkFile))
+
 	// rename the temporary file to the high watermark file
 	err = os.Rename(s.highWatermarkFile+".tmp", s.highWatermarkFile)
 	if err != nil {
@@ -164,30 +172,58 @@ func (s *Watcher) persistOffsets() {
 	}
 }
 
+func (s *Watcher) loadOffsets() map[string]int {
+	ret := make(map[string]int)
+
+	// open the high watermark file
+	f, err := os.Open(s.highWatermarkFile)
+	if err != nil {
+		// if the file doesn't exist, return an empty map
+		slog.Info(fmt.Sprintf("cant open high watermark file: %s", err))
+		return ret
+	}
+	defer f.Close()
+
+	// read the offsets from the file
+	dec := json.NewDecoder(f)
+	err = dec.Decode(&ret)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error decoding offsets: %s", err))
+		return ret
+	}
+	return ret
+}
+
 func (s *Watcher) recvLoop(ctx context.Context) error {
 
-	var callback = func(ctx context.Context, b []byte, fname string, pos int) error {
-		event := kawa.Message[types.Event]{
-			Value: types.Event{
-				// TODO: how do we parse eventTime from the file?
-				EventTime:  time.Now(),
-				SourceType: "scanner",
-				RawLog:     b,
-			},
+	var callback = func(startOffset int) func(ctx context.Context, b []byte, fname string, pos int) error {
+		return func(ctx context.Context, b []byte, fname string, pos int) error {
+			event := kawa.Message[types.Event]{
+				Value: types.Event{
+					// TODO: how do we parse eventTime from the file?
+					EventTime:  time.Now(),
+					SourceType: "scanner",
+					RawLog:     b,
+				},
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case s.msgC <- msgErr[types.Event]{
+				msg: event,
+				ack: func() {
+					s.savePosition(fname, startOffset+pos)
+				},
+				err: nil,
+			}:
+			}
+			return nil
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case s.msgC <- msgErr[types.Event]{
-			msg: event,
-			ack: func() {
-				s.savePosition(fname, pos)
-			},
-			err: nil,
-		}:
-		}
-		return nil
 	}
+
+	// load the offsets from the high watermark file
+	offsets := s.loadOffsets()
+	firstRun := true
 
 	for {
 		// list the files in the directory given by s.path
@@ -197,7 +233,6 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 		}
 
 		for _, file := range files {
-
 			if file.IsDir() {
 				continue
 			}
@@ -234,11 +269,22 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 				if err != nil {
 					return fmt.Errorf("watcher: %w", err)
 				}
+				startOffset := 0
+				if firstRun {
+					slog.Info(fmt.Sprintf("first run, setting file position to high watermark: %s", fname))
+					// if this is the first run, set the position to the high watermark
+					if pos, ok := offsets[fname]; ok {
+						slog.Info(fmt.Sprintf("first run, setting file position to: %d", pos))
+						startOffset = pos
+						f.Seek(int64(pos), 0)
+					}
+				}
+
 				// open the file for processing
-				s.fmap[f.Name()] = filePos{file: f, pos: 0}
+				s.fmap[fname] = filePos{file: f, pos: startOffset}
 				go func() {
 					// scan the file
-					err := scanUntilCancel(ctx, callback, f)
+					err := scanUntilCancel(ctx, callback(startOffset), f)
 					if err != nil {
 						s.msgC <- msgErr[types.Event]{
 							msg: kawa.Message[types.Event]{},
@@ -250,22 +296,16 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 			}
 			s.mapLock.Unlock()
 		}
-
+		firstRun = false
 		time.Sleep(5 * time.Second)
 	}
-
-	// for {
-	// 	msg, ack, err := s.wrapped.Recv(ctx)
-	// }
 }
 
 func (s *Watcher) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
-
 	select {
 	case <-ctx.Done():
 		return kawa.Message[types.Event]{}, nil, ctx.Err()
 	case msg := <-s.msgC:
 		return msg.msg, msg.ack, msg.err
 	}
-
 }
