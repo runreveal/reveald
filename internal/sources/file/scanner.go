@@ -1,4 +1,4 @@
-package filewatch
+package file
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/runreveal/reveald/internal/sources/filewatch/internal"
+	"github.com/runreveal/reveald/internal/sources/file/internal"
 )
 
 // scanUntilClose reads from the io.ReadCloser until it is closed, calling the

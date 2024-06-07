@@ -17,7 +17,7 @@ import (
 	"github.com/runreveal/reveald/internal/destinations/printer"
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
 	s3kawad "github.com/runreveal/reveald/internal/destinations/s3"
-	"github.com/runreveal/reveald/internal/sources/filewatch"
+	"github.com/runreveal/reveald/internal/sources/file"
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
@@ -35,8 +35,8 @@ func init() {
 	loader.Register("scanner", func() loader.Builder[kawa.Source[types.Event]] {
 		return &ScannerConfig{}
 	})
-	loader.Register("watcher", func() loader.Builder[kawa.Source[types.Event]] {
-		return &WatcherConfig{}
+	loader.Register("file", func() loader.Builder[kawa.Source[types.Event]] {
+		return &FileConfig{}
 	})
 	loader.Register("syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &SyslogConfig{}
@@ -75,20 +75,20 @@ func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 	return scanner.NewScanner(os.Stdin), nil
 }
 
-type WatcherConfig struct {
+type FileConfig struct {
 	// Path is the directory to watch
 	Path string `json:"path"`
 	// Extension indicates which files to consume
 	Extension string `json:"extension"`
 }
 
-func (c *WatcherConfig) Configure() (kawa.Source[types.Event], error) {
-	slog.Info(fmt.Sprintf("configuring filewatcher for directory: %s", c.Path))
-	return filewatch.NewWatcher(
-		filewatch.WithExtension(c.Extension),
-		filewatch.WithPath(c.Path),
-		filewatch.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "watcher-hwm.json")),
-		filewatch.WithCommitInterval(5*time.Second),
+func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info(fmt.Sprintf("configuring file source for path: %s", c.Path))
+	return file.NewWatcher(
+		file.WithExtension(c.Extension),
+		file.WithPath(c.Path),
+		file.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "watcher-hwm.json")),
+		file.WithCommitInterval(5*time.Second),
 	), nil
 }
 
