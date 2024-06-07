@@ -24,7 +24,7 @@ import (
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
 	"github.com/runreveal/reveald/internal/types"
-	// We could register and configure these in a separate package
+	// We could register and configure these in their own package
 	// using the init() function.
 	// That would make it easy to "dynamically" enable and disable them at
 	// compile time since it would simply be updating the import list.
@@ -35,8 +35,8 @@ func init() {
 	loader.Register("scanner", func() loader.Builder[kawa.Source[types.Event]] {
 		return &ScannerConfig{}
 	})
-	loader.Register("filewatch", func() loader.Builder[kawa.Source[types.Event]] {
-		return &FileConfig{}
+	loader.Register("watcher", func() loader.Builder[kawa.Source[types.Event]] {
+		return &WatcherConfig{}
 	})
 	loader.Register("syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &SyslogConfig{}
@@ -75,13 +75,17 @@ func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 	return scanner.NewScanner(os.Stdin), nil
 }
 
-type FileConfig struct {
+type WatcherConfig struct {
+	// Path is the directory to watch
 	Path string `json:"path"`
+	// Extension indicates which files to consume
+	Extension string `json:"extension"`
 }
 
-func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
+func (c *WatcherConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info(fmt.Sprintf("configuring filewatcher for directory: %s", c.Path))
 	return filewatch.NewWatcher(
+		filewatch.WithExtension(c.Extension),
 		filewatch.WithPath(c.Path),
 		filewatch.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "watcher-hwm.json")),
 		filewatch.WithCommitInterval(5*time.Second),

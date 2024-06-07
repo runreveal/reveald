@@ -64,12 +64,15 @@ type Watcher struct {
 	highWatermarkFile string
 	commitInterval    time.Duration
 	commitTicker      *time.Ticker
+
+	loaded chan struct{}
 }
 
 func NewWatcher(opts ...Option) *Watcher {
 	w := &Watcher{
-		msgC: make(chan msgErr[types.Event]),
-		fmap: make(map[string]filePos),
+		msgC:   make(chan msgErr[types.Event]),
+		fmap:   make(map[string]filePos),
+		loaded: make(chan struct{}),
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -104,6 +107,7 @@ func (s *Watcher) Run(ctx context.Context) error {
 
 	wg := await.New()
 	wg.Add(await.RunFunc(s.recvLoop))
+	wg.Add(await.RunFunc(s.commitLoop))
 	return wg.Run(ctx)
 }
 
@@ -123,14 +127,6 @@ func (s *Watcher) savePosition(fname string, pos int) {
 		slog.Error(fmt.Sprintf("file %s not found in map.", fname))
 	}
 	s.mapLock.Unlock()
-
-	if s.commitTicker != nil {
-		select {
-		case <-s.commitTicker.C:
-			s.persistOffsets()
-		default:
-		}
-	}
 }
 
 func (s *Watcher) persistOffsets() {
@@ -162,7 +158,7 @@ func (s *Watcher) persistOffsets() {
 		return
 	}
 
-	slog.Info(fmt.Sprintf("persisted offsets to high watermark file: %s", s.highWatermarkFile))
+	slog.Debug(fmt.Sprintf("persisted offsets to high watermark file: %s", s.highWatermarkFile))
 
 	// rename the temporary file to the high watermark file
 	err = os.Rename(s.highWatermarkFile+".tmp", s.highWatermarkFile)
@@ -194,6 +190,24 @@ func (s *Watcher) loadOffsets() map[string]int {
 	return ret
 }
 
+func (s *Watcher) commitLoop(ctx context.Context) error {
+	// Wait until we have loaded the initial offsets
+	select {
+	case <-s.loaded:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.commitTicker.C:
+			s.persistOffsets()
+		}
+	}
+}
+
 func (s *Watcher) recvLoop(ctx context.Context) error {
 
 	var callback = func(startOffset int) func(ctx context.Context, b []byte, fname string, pos int) error {
@@ -202,7 +216,7 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 				Value: types.Event{
 					// TODO: how do we parse eventTime from the file?
 					EventTime:  time.Now(),
-					SourceType: "scanner",
+					SourceType: "watcher",
 					RawLog:     b,
 				},
 			}
@@ -238,6 +252,7 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 			}
 			fname := filepath.Join(s.path, file.Name())
 			if s.extension != "" && !strings.HasSuffix(fname, s.extension) {
+				slog.Debug(fmt.Sprintf("skipping file without given extension (%s): %s", s.extension, fname))
 				continue
 			}
 			s.mapLock.Lock()
@@ -259,7 +274,7 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 				}
 			} else {
 				// if the file is not in the map, add it
-				slog.Debug(fmt.Sprintf("new log file detected for read: %s", fname))
+				slog.Debug(fmt.Sprintf("new log file detected to read: %s", fname))
 				shouldOpen = true
 			}
 
@@ -271,20 +286,20 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 				}
 				startOffset := 0
 				if firstRun {
-					slog.Info(fmt.Sprintf("first run, setting file position to high watermark: %s", fname))
+					slog.Debug(fmt.Sprintf("first run, setting file position to high watermark: %s", fname))
 					// if this is the first run, set the position to the high watermark
 					if pos, ok := offsets[fname]; ok {
-						slog.Info(fmt.Sprintf("first run, setting file position to: %d", pos))
+						slog.Debug(fmt.Sprintf("first run, setting file position to: %d", pos))
 						startOffset = pos
 						f.Seek(int64(pos), 0)
 					}
 				}
-
+				fp := filePos{file: f, pos: startOffset}
 				// open the file for processing
-				s.fmap[fname] = filePos{file: f, pos: startOffset}
-				go func() {
+				s.fmap[fname] = fp
+				go func(fpos filePos) {
 					// scan the file
-					err := scanUntilCancel(ctx, callback(startOffset), f)
+					err := scanUntilCancel(ctx, callback(fpos.pos), fpos.file)
 					if err != nil {
 						s.msgC <- msgErr[types.Event]{
 							msg: kawa.Message[types.Event]{},
@@ -292,9 +307,12 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 							err: err,
 						}
 					}
-				}()
+				}(fp)
 			}
 			s.mapLock.Unlock()
+		}
+		if firstRun {
+			close(s.loaded)
 		}
 		firstRun = false
 		time.Sleep(5 * time.Second)
