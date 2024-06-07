@@ -293,7 +293,10 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 					if pos, ok := offsets[fname]; ok {
 						slog.Debug(fmt.Sprintf("first run, setting file position to: %d", pos))
 						startOffset = pos
-						f.Seek(int64(pos), 0)
+						_, err = f.Seek(int64(pos), 0)
+						if err != nil {
+							return fmt.Errorf("watcher: %w", err)
+						}
 					}
 				}
 				fp := filePos{file: f, pos: startOffset}
