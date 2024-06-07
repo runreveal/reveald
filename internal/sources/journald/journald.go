@@ -38,7 +38,11 @@ func (s *Journald) Run(ctx context.Context) error {
 
 func (s *Journald) recvLoop(ctx context.Context) error {
 	// Open file to check and save high watermark
-	hwmFile, err := os.OpenFile(filepath.Join(internal.ConfigDir(), "kawad-journald-hwm"), os.O_RDWR|os.O_CREATE, os.FileMode(0644))
+	hwmFile, err := os.OpenFile(
+		filepath.Join(internal.ConfigDir(), "kawad-journald-hwm"),
+		os.O_RDWR|os.O_CREATE,
+		os.FileMode(0644),
+	)
 	if err != nil {
 		return err
 	}
