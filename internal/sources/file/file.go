@@ -201,6 +201,7 @@ func (s *Watcher) commitLoop(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			s.persistOffsets()
 			return ctx.Err()
 		case <-s.commitTicker.C:
 			s.persistOffsets()
@@ -216,7 +217,7 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 				Value: types.Event{
 					// TODO: how do we parse eventTime from the file?
 					EventTime:  time.Now(),
-					SourceType: "watcher",
+					SourceType: "file",
 					RawLog:     b,
 				},
 			}
@@ -250,6 +251,7 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 			if file.IsDir() {
 				continue
 			}
+			// resolve the full path of the file
 			fname := filepath.Join(s.path, file.Name())
 			if s.extension != "" && !strings.HasSuffix(fname, s.extension) {
 				slog.Debug(fmt.Sprintf("skipping file without given extension (%s): %s", s.extension, fname))
