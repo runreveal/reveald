@@ -89,6 +89,10 @@ func (s *Watcher) Run(ctx context.Context) error {
 		return fmt.Errorf("watcher: path is required")
 	}
 
+	if s.extension == "" {
+		return fmt.Errorf("watcher: extension is required at this time")
+	}
+
 	st, err := os.Stat(s.path)
 	if err != nil {
 		return fmt.Errorf("watcher: %w", err)
