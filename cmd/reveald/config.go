@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"log/slog"
@@ -10,25 +12,31 @@ import (
 	"github.com/runreveal/kawa/x/mqtt"
 	"github.com/runreveal/kawa/x/s3"
 	"github.com/runreveal/lib/loader"
+	"github.com/runreveal/reveald/internal"
 	mqttDstkawad "github.com/runreveal/reveald/internal/destinations/mqtt"
 	"github.com/runreveal/reveald/internal/destinations/printer"
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
 	s3kawad "github.com/runreveal/reveald/internal/destinations/s3"
+	"github.com/runreveal/reveald/internal/sources/file"
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
 	"github.com/runreveal/reveald/internal/types"
-	// We could register and configure these in a separate package
+	// We could register and configure these in their own package
 	// using the init() function.
 	// That would make it easy to "dynamically" enable and disable them at
 	// compile time since it would simply be updating the import list.
 )
 
 func init() {
+	// ---------------Sources-------------------------
 	loader.Register("scanner", func() loader.Builder[kawa.Source[types.Event]] {
 		return &ScannerConfig{}
+	})
+	loader.Register("file", func() loader.Builder[kawa.Source[types.Event]] {
+		return &FileConfig{}
 	})
 	loader.Register("syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &SyslogConfig{}
@@ -42,6 +50,8 @@ func init() {
 	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
 		return &MQTTSrcConfig{}
 	})
+
+	// ---------------Destinations-------------------------
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &PrinterConfig{}
 	})
@@ -63,6 +73,23 @@ type ScannerConfig struct {
 func (c *ScannerConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring scanner")
 	return scanner.NewScanner(os.Stdin), nil
+}
+
+type FileConfig struct {
+	// Path is the directory to watch
+	Path string `json:"path"`
+	// Extension indicates which files to consume
+	Extension string `json:"extension"`
+}
+
+func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info(fmt.Sprintf("configuring file source for path: %s", c.Path))
+	return file.NewWatcher(
+		file.WithExtension(c.Extension),
+		file.WithPath(c.Path),
+		file.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "watcher-hwm.json")),
+		file.WithCommitInterval(5*time.Second),
+	), nil
 }
 
 type SyslogConfig struct {

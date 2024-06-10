@@ -70,7 +70,7 @@ func (q *Queue) Run(ctx context.Context) error {
 	if err := q.Validate(); err != nil {
 		return err
 	}
-	w := await.New(await.WithSignals)
+	w := await.New()
 
 	var srcs []kawa.Source[types.Event]
 	for _, s := range q.Sources {
