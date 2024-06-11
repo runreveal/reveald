@@ -17,6 +17,7 @@ import (
 	"github.com/runreveal/reveald/internal/destinations/printer"
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
 	s3kawad "github.com/runreveal/reveald/internal/destinations/s3"
+	"github.com/runreveal/reveald/internal/sources/command"
 	"github.com/runreveal/reveald/internal/sources/file"
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
@@ -37,6 +38,9 @@ func init() {
 	})
 	loader.Register("file", func() loader.Builder[kawa.Source[types.Event]] {
 		return &FileConfig{}
+	})
+	loader.Register("command", func() loader.Builder[kawa.Source[types.Event]] {
+		return &CmdConfig{}
 	})
 	loader.Register("syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &SyslogConfig{}
@@ -89,6 +93,26 @@ func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
 		file.WithPath(c.Path),
 		file.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "watcher-hwm.json")),
 		file.WithCommitInterval(5*time.Second),
+	), nil
+}
+
+type CmdConfig struct {
+	// Cmd is the shell command to run
+	Cmd  string   `json:"cmd"`
+	Args []string `json:"args"`
+	// Environment is a map of environment variables to set
+	InheritEnv  bool              `json:"inheritEnv"`
+	Environment map[string]string `json:"env"`
+	Interval    time.Duration     `json:"interval"`
+}
+
+func (c *CmdConfig) Configure() (kawa.Source[types.Event], error) {
+	return command.NewCommand(
+		command.WithCmd(c.Cmd),
+		command.WithArgs(c.Args),
+		command.WithEnvironment(c.Environment),
+		command.WithInheritEnv(c.InheritEnv),
+		command.WithInterval(c.Interval),
 	), nil
 }
 
