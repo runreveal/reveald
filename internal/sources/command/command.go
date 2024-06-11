@@ -86,6 +86,7 @@ func (s *Command) recvLoop(ctx context.Context) error {
 		defer cancel()
 
 		cmd := exec.CommandContext(newCtx, s.cmd, s.args...)
+		cmd.Env = make([]string, 0)
 		if s.inheritEnv {
 			cmd.Env = append(cmd.Env, os.Environ()...)
 		}

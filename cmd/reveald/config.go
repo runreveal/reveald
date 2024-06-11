@@ -102,7 +102,7 @@ type CmdConfig struct {
 	Args []string `json:"args"`
 	// Environment is a map of environment variables to set
 	InheritEnv  bool              `json:"inheritEnv"`
-	Environment map[string]string `json:"environment"`
+	Environment map[string]string `json:"env"`
 	Interval    time.Duration     `json:"interval"`
 }
 
