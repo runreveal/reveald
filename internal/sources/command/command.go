@@ -98,7 +98,8 @@ func (s *Command) recvLoop(ctx context.Context) error {
 			slog.Error(fmt.Sprintf("Error getting stdout pipe: %s", err))
 			return err
 		}
-		_, err = cmd.StderrPipe()
+
+		stderr, err := cmd.StderrPipe()
 		if err != nil {
 			slog.Error(fmt.Sprintf("Error getting stderr pipe: %s", err))
 			return err
@@ -109,6 +110,18 @@ func (s *Command) recvLoop(ctx context.Context) error {
 			slog.Error(fmt.Sprintf("Error starting command: %s", err))
 			return err
 		}
+
+		go func() {
+			errScan := bufio.NewScanner(stderr)
+			for errScan.Scan() {
+				ll := errScan.Text()
+				slog.Error(fmt.Sprintf("command: %s", ll))
+			}
+
+			if err := errScan.Err(); err != nil {
+				slog.Error(fmt.Sprintf("scanning err: %+v", err))
+			}
+		}()
 
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
@@ -134,7 +147,7 @@ func (s *Command) recvLoop(ctx context.Context) error {
 		}
 
 		if err := scanner.Err(); err != nil {
-			slog.Info(fmt.Sprintf("scanning err: %+v", err))
+			slog.Error(fmt.Sprintf("scanning err: %+v", err))
 			return err
 		}
 		err = cmd.Wait()
