@@ -4,7 +4,7 @@ go 1.21.5
 
 require (
 	github.com/carlmjohnson/requests v0.23.4
-	github.com/runreveal/kawa v0.1.0
+	github.com/runreveal/kawa v0.1.2
 	github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c
 	github.com/runreveal/lib/loader v0.0.0-20231128193746-50c2ad68891c
 	github.com/spf13/cobra v1.7.0
