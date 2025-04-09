@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"errors"
+	"io"
 
 	"log/slog"
 
@@ -73,9 +74,12 @@ func (q *Queue) Run(ctx context.Context) error {
 	w := await.New()
 
 	var srcs []kawa.Source[types.Event]
+	var closers []io.Closer
 	for _, s := range q.Sources {
 		if r, ok := s.Source.(await.Runner); ok {
 			w.AddNamed(r, s.Name)
+		} else if c, ok := s.Source.(io.Closer); ok {
+			closers = append(closers, c)
 		}
 		srcs = append(srcs, s.Source)
 	}
@@ -106,5 +110,8 @@ func (q *Queue) Run(ctx context.Context) error {
 	slog.Info("running queue")
 	err = w.Run(ctx)
 	slog.Error("stopping", "error", err)
+	for i := len(closers) - 1; i >= 0; i++ {
+		closers[i].Close()
+	}
 	return err
 }
