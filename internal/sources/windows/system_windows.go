@@ -44,13 +44,19 @@ var (
 	modwevtapi  = windows.NewLazySystemDLL("wevtapi.dll")
 	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 
+	// https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtsubscribe
 	procEvtSubscribe = modwevtapi.NewProc("EvtSubscribe")
-	procEvtRender    = modwevtapi.NewProc("EvtRender")
-	procEvtClose     = modwevtapi.NewProc("EvtClose")
+	// https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtrender
+	procEvtRender = modwevtapi.NewProc("EvtRender")
+	// https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtclose
+	procEvtClose = modwevtapi.NewProc("EvtClose")
 
-	procRegisterEventSource   = modadvapi32.NewProc("RegisterEventSourceW")
+	// https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-registereventsourcew
+	procRegisterEventSource = modadvapi32.NewProc("RegisterEventSourceW")
+	// https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-deregistereventsource
 	procDeregisterEventSource = modadvapi32.NewProc("DeregisterEventSource")
-	procReportEvent           = modadvapi32.NewProc("ReportEventW")
+	// https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-reporteventw
+	procReportEvent = modadvapi32.NewProc("ReportEventW")
 
 	cbSubscribe = windows.NewCallback(subscribeCallback)
 )
