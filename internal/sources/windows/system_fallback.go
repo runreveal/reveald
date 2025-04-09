@@ -18,3 +18,5 @@ func (evtSub *eventSubscription) Close() error { return nil }
 func reportInfoEvent(sourceName string, category uint16, eventID uint32, messages []string) error {
 	return fmt.Errorf("report event: unsupported on %s", runtime.GOOS)
 }
+
+var _ = utf16ToUTF8
