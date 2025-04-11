@@ -111,9 +111,11 @@ func (s *EventLogSource) Recv(ctx context.Context) (kawa.Message[Event], func(),
 	}, func() {}, nil
 }
 
-// Close stops the Windows Event Log subscription
+// Run waits until ctx.Done() is closed
+// then stops the Windows Event Log subscription
 // and releases any resources associated with the source.
-func (s *EventLogSource) Close() error {
+func (s *EventLogSource) Run(ctx context.Context) error {
+	<-ctx.Done()
 	err := s.subscription.Close()
 	s.setError.Do(func() {
 		close(s.events)

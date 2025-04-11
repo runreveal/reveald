@@ -190,8 +190,8 @@ func (s eventLogSource) Recv(ctx context.Context) (kawa.Message[types.Event], fu
 	}, ack, nil
 }
 
-func (s eventLogSource) Close() error {
-	return s.source.Close()
+func (s eventLogSource) Run(ctx context.Context) error {
+	return s.source.Run(ctx)
 }
 
 type PrinterConfig struct {

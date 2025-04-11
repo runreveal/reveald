@@ -12,6 +12,9 @@ func TestEventLogSource(t *testing.T) {
 		t.Skipf("cannot run test on %s", runtime.GOOS)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	source, err := NewEventLogSource(&Options{
 		Channel: "Application",
 		Query:   "*[System[(EventID=3001)]]",
@@ -19,10 +22,16 @@ func TestEventLogSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := source.Close(); err != nil {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := source.Run(ctx); err != nil {
 			t.Error("Close:", err)
 		}
+	}()
+	defer func() {
+		cancel()
+		<-done
 	}()
 
 	const message = "Hello, World!"

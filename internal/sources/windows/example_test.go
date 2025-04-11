@@ -8,7 +8,8 @@ import (
 )
 
 func ExampleEventLogSource() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Open an event log source that matches successful interactive logon events.
 	source, err := windows.NewEventLogSource(&windows.Options{
@@ -18,7 +19,15 @@ func ExampleEventLogSource() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer source.Close()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		source.Run(ctx)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
 
 	for {
 		// Wait for next message.
