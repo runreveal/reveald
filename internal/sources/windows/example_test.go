@@ -22,7 +22,9 @@ func ExampleEventLogSource() {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		source.Run(ctx)
+		if err := source.Run(ctx); err != nil {
+			log.Print(err)
+		}
 	}()
 	defer func() {
 		cancel()
