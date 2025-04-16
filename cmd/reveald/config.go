@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
+	"github.com/runreveal/reveald/internal/sources/windows"
 	"github.com/runreveal/reveald/internal/types"
 	// We could register and configure these in their own package
 	// using the init() function.
@@ -53,6 +55,9 @@ func init() {
 	})
 	loader.Register("mqtt", func() loader.Builder[kawa.Source[types.Event]] {
 		return &MQTTSrcConfig{}
+	})
+	loader.Register("eventlog", func() loader.Builder[kawa.Source[types.Event]] {
+		return &EventLogConfig{}
 	})
 
 	// ---------------Destinations-------------------------
@@ -138,6 +143,55 @@ func (c *NginxSyslogConfig) Configure() (kawa.Source[types.Event], error) {
 	return nginx_syslog.NewNginxSyslogSource(nginx_syslog.NginxSyslogCfg{
 		Addr: c.Addr,
 	}), nil
+}
+
+type EventLogConfig struct {
+	Channel string `json:"channel"`
+	Query   string `json:"query"`
+	Buffer  int    `json:"buffer"`
+}
+
+func (c *EventLogConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info("configuring windows event log")
+	buffer := 128
+	if c.Buffer != 0 {
+		buffer = c.Buffer
+	}
+	source, err := windows.NewEventLogSource(&windows.Options{
+		Channel: c.Channel,
+		Query:   c.Query,
+		Buffer:  buffer,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return eventLogSource{source}, nil
+}
+
+// eventLogSource wraps [windows.EventLogSource] and normalizes the events.
+type eventLogSource struct {
+	source *windows.EventLogSource
+}
+
+func (s eventLogSource) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
+	msg, ack, err := s.source.Recv(ctx)
+	if err != nil {
+		return kawa.Message[types.Event]{}, nil, err
+	}
+	event, err := msg.Value.ToGeneric()
+	if err != nil {
+		return kawa.Message[types.Event]{}, nil, err
+	}
+	return kawa.Message[types.Event]{
+		Key:        msg.Key,
+		Value:      *event,
+		Topic:      msg.Topic,
+		Attributes: msg.Attributes,
+	}, ack, nil
+}
+
+func (s eventLogSource) Run(ctx context.Context) error {
+	return s.source.Run(ctx)
 }
 
 type PrinterConfig struct {
