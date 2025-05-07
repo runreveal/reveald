@@ -27,6 +27,7 @@ import (
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	"github.com/runreveal/reveald/internal/sources/net"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
+	"github.com/runreveal/reveald/internal/sources/processes"
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
 	"github.com/runreveal/reveald/internal/sources/windows"
@@ -56,6 +57,9 @@ func init() {
 	})
 	loader.Register("net", func() loader.Builder[kawa.Source[types.Event]] {
 		return &NetConfig{}
+	})
+	loader.Register("processes", func() loader.Builder[kawa.Source[types.Event]] {
+		return &ProcessesConfig{}
 	})
 	loader.Register("journald", func() loader.Builder[kawa.Source[types.Event]] {
 		return &JournaldConfig{}
@@ -177,6 +181,27 @@ func (c *NetConfig) Configure() (kawa.Source[types.Event], error) {
 				IP:   e.Address.Addr(),
 				Port: uint(e.Address.Port()),
 			},
+		}, nil
+	}), nil
+}
+
+type ProcessesConfig struct {
+}
+
+func (c *ProcessesConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info("configuring processes")
+	source, err := processes.NewSource()
+	if err != nil {
+		return nil, err
+	}
+	return newMapSource(source, func(e *processes.Event) (types.Event, error) {
+		raw, err := json.Marshal(e)
+		if err != nil {
+			return types.Event{}, err
+		}
+		return types.Event{
+			RawLog:    raw,
+			EventTime: e.Time,
 		}, nil
 	}), nil
 }
