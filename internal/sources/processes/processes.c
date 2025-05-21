@@ -6,6 +6,12 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+#define SOCK_STREAM 1
+#define SOCK_DGRAM 2
+
+#define AF_INET 2
+#define AF_INET6 10
+
 // Abbreviated version of Linux's internal task_struct.
 // preserve_access_index enables CO-RE
 // so exact field offsets are determined at runtime.
@@ -14,23 +20,57 @@ struct task_struct {
   struct task_struct *real_parent;
 } __attribute__((preserve_access_index));
 
-#define MAX_ARG_LEN 255
-#define MAX_ARGS 30
+#define EXEC_FILENAME_SIZE 1006
+#define EXEC_ARG_SIZE 1024
+#define MAX_ARGS 60
 
-struct processes_result {
+#define DATA_TYPE_FORK 0
+#define DATA_TYPE_EXEC 1
+#define DATA_TYPE_CONNECT 2
+
+struct tagged_data_header {
   __u64 time;
   __u32 pid;
   __u32 ppid;
-  char filename[MAX_ARG_LEN + 1];
-  // Ideally, this would be a single buffer,
-  // but it proved too tricky to get the eBPF verifier onboard with it.
-  char argv[MAX_ARGS][MAX_ARG_LEN + 1];
+  __u8 data_type;
+} __attribute__((packed));
+
+struct exec_data {
+  struct tagged_data_header header;
+  __u8 argc;
+  char filename[EXEC_FILENAME_SIZE];
+} __attribute__((packed));
+
+struct network_data {
+  struct tagged_data_header header;
+  __u8 daddr[16];
+  __u16 dport;
 } __attribute__((packed));
 
 struct {
   __uint(type, BPF_MAP_TYPE_RINGBUF);
   __uint(max_entries, 32768);
 } events SEC(".maps");
+
+struct exec_arg_key {
+  __u64 time;
+  __u32 pid;
+  __u8 i;
+} __attribute__((packed));
+
+struct {
+  __uint(type, BPF_MAP_TYPE_HASH);
+  __type(key, struct exec_arg_key);
+  __uint(value_size, EXEC_ARG_SIZE);
+  __uint(max_entries, 512);
+} exec_args SEC(".maps");
+
+struct {
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __type(key, __u32);
+  __uint(value_size, EXEC_ARG_SIZE);
+  __uint(max_entries, 1);
+} exec_arg_buffer SEC(".maps");
 
 static int get_ppid(struct task_struct *task) {
   struct task_struct *parent;
@@ -52,16 +92,13 @@ struct sys_exit_fork_context {
 
 SEC("tracepoint/syscalls/sys_exit_fork")
 int syscall_exit_fork(struct sys_exit_fork_context *ctx) {
-  struct processes_result *result;
-  result = bpf_ringbuf_reserve(&events, sizeof(struct processes_result), 0);
+  struct tagged_data_header *result;
+  result = bpf_ringbuf_reserve(&events, sizeof(struct tagged_data_header), 0);
   if (result != NULL) {
+    result->data_type = DATA_TYPE_FORK;
     result->time = bpf_ktime_get_ns();
     result->pid = bpf_get_current_pid_tgid();
-    result->filename[0] = 0;
-    int i;
-    for (i = 0; i < MAX_ARGS; i++) {
-      result->argv[i][0] = 0;
-    }
+    result->ppid = get_ppid((struct task_struct *) bpf_get_current_task());
     bpf_ringbuf_submit(result, 0);
   }
   return 0;
@@ -81,46 +118,90 @@ struct sys_enter_execve_context {
 
 SEC("tracepoint/syscalls/sys_enter_execve")
 int syscall_enter_execve(struct sys_enter_execve_context *ctx) {
-  struct processes_result *result;
-  result = bpf_ringbuf_reserve(&events, sizeof(struct processes_result), 0);
-  if (result != NULL) {
-    result->time = bpf_ktime_get_ns();
-    result->pid = bpf_get_current_pid_tgid();
-    result->ppid = get_ppid((struct task_struct *) bpf_get_current_task());
+  struct exec_data *result;
+  result = bpf_ringbuf_reserve(&events, sizeof(struct exec_data), 0);
+  if (result == NULL) {
+    return 0;
+  }
 
-    long n = bpf_probe_read_user_str(result->filename, MAX_ARG_LEN + 1, ctx->filename);
-    if (n < 0) {
-      bpf_ringbuf_discard(result, 0);
-      return 0;
-    }
+  __u64 time = bpf_ktime_get_ns();
+  result->header.data_type = DATA_TYPE_EXEC;
+  result->header.time = time;
+  result->header.pid = bpf_get_current_pid_tgid();
+  result->header.ppid = get_ppid((struct task_struct *) bpf_get_current_task());
 
-    int i;
-    for (i = 0; i < MAX_ARGS; i++) {
+  long n = bpf_probe_read_user_str(&result->filename[0], EXEC_FILENAME_SIZE, ctx->filename);
+  if (n < 0) {
+    bpf_ringbuf_discard(result, 0);
+    return 0;
+  }
+
+  __u8 argc = 0;
+  struct exec_arg_key arg_key;
+  int exec_arg_buffer_key = 0;
+  char *arg_value = bpf_map_lookup_elem(&exec_arg_buffer, &exec_arg_buffer_key);
+  if (arg_value != NULL) {
+    arg_key.time = result->header.time;
+    arg_key.pid = result->header.pid;
+    for (argc = 0; argc < MAX_ARGS; argc++) {
       const char *argp;
-      if (bpf_probe_read_user(&argp, sizeof(const char *), &ctx->argv[i]) != 0) {
-        bpf_ringbuf_discard(result, 0);
-        return 0;
-      }
-      if (argp == NULL) {
-        result->argv[i][0] = 0;
-        result->argv[i][1] = 0xff;
+      if (bpf_probe_read_user(&argp, sizeof(const char *), &ctx->argv[argc]) != 0) {
         break;
       }
-
-      n = bpf_probe_read_user_str(&result->argv[i][0], MAX_ARG_LEN + 1, argp);
-      if (n < 0) {
-        bpf_ringbuf_discard(result, 0);
-        return 0;
+      if (argp == NULL) {
+        break;
       }
-      if (n == 1) {
-        result->argv[i][1] = 0;
+      n = bpf_probe_read_user_str(arg_value, EXEC_ARG_SIZE, argp);
+      if (n < 0) {
+        break;
+      }
+      arg_key.i = argc;
+      if (bpf_map_update_elem(&exec_args, &arg_key, arg_value, BPF_NOEXIST) != 0) {
+        break;
       }
     }
+  }
+  result->argc = argc;
+  bpf_ringbuf_submit(result, 0);
 
+  return 0;
+}
+
+// Converts ip4 (in host byte order) to an IPv6 ::ffff:0:0/96 address.
+static void fill_4in6_address(__u8 *dst, __u32 ip4) {
+  int i;
+  for (i = 0; i < 10; i++) {
+    dst[i] = 0;
+  }
+  dst[10] = 0xff;
+  dst[11] = 0xff;
+  dst[12] = ip4 >> 24;
+  dst[13] = ip4 >> 16;
+  dst[14] = ip4 >> 8;
+  dst[15] = ip4;
+}
+
+SEC("cgroup/connect4")
+int sock_connect4(struct bpf_sock_addr *ctx) {
+  if (ctx->type != SOCK_STREAM || ctx->family != AF_INET) {
+    return 1;
+  }
+
+  struct network_data *result;
+  result = bpf_ringbuf_reserve(&events, sizeof(struct network_data), 0);
+  if (result != NULL) {
+    result->header.data_type = DATA_TYPE_CONNECT;
+    result->header.time = bpf_ktime_get_ns();
+    result->header.pid = bpf_get_current_pid_tgid();
+    // result->header.ppid = get_ppid((struct task_struct *) bpf_get_current_task());
+    result->header.ppid = 0;
+
+    fill_4in6_address(&result->daddr[0], bpf_ntohl(ctx->user_ip4));
+    result->dport = bpf_ntohs(ctx->user_port);
     bpf_ringbuf_submit(result, 0);
   }
 
-  return 0;
+  return 1;
 }
 
 char __license[] SEC("license") = "GPL";

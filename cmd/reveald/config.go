@@ -156,41 +156,13 @@ func (c *NginxSyslogConfig) Configure() (kawa.Source[types.Event], error) {
 	}), nil
 }
 
-type NetConfig struct {
-}
-
-func (c *NetConfig) Configure() (kawa.Source[types.Event], error) {
-	slog.Info("configuring net")
-	source, err := net.NewSource()
-	if err != nil {
-		return nil, err
-	}
-	return newMapSource(source, func(e *net.Event) (types.Event, error) {
-		raw, err := json.Marshal(e)
-		if err != nil {
-			return types.Event{}, err
-		}
-		return types.Event{
-			RawLog:    raw,
-			EventTime: e.Time,
-			// TODO(soon): Is this the right way to represent PID?
-			Actor: types.Actor{
-				ID: strconv.Itoa(e.PID),
-			},
-			Dst: types.Network{
-				IP:   e.Address.Addr(),
-				Port: uint(e.Address.Port()),
-			},
-		}, nil
-	}), nil
-}
-
 type ProcessesConfig struct {
+	IgnoreNetwork bool `json:"ignoreNetwork"`
 }
 
 func (c *ProcessesConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring processes")
-	source, err := processes.NewSource()
+	source, err := processes.NewSource(!c.IgnoreNetwork)
 	if err != nil {
 		return nil, err
 	}

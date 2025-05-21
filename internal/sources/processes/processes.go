@@ -2,28 +2,30 @@ package processes
 
 import (
 	"context"
+	"net/netip"
 	"time"
 
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/lib/await"
 )
 
-type EventType string
-
-const (
-	ForkEvent EventType = "fork"
-	ExecEvent EventType = "exec"
-)
-
 type Event struct {
-	Type       EventType `json:"type"`
 	Time       time.Time `json:"time"`
 	KernelTime uint64    `json:"bootTime"`
 	PID        int       `json:"pid"`
 	ParentPID  int       `json:"ppid"`
 
+	ExecEvent    *ExecEvent    `json:"exec,omitempty"`
+	ConnectEvent *ConnectEvent `json:"connect,omitempty"`
+}
+
+type ExecEvent struct {
 	Program string   `json:"program,omitempty"`
 	Argv    []string `json:"argv,omitempty"`
+}
+
+type ConnectEvent struct {
+	Address netip.AddrPort `json:"address"`
 }
 
 var _ interface {
@@ -35,8 +37,8 @@ type Source struct {
 	l *listener
 }
 
-func NewSource() (*Source, error) {
-	l, err := newListener()
+func NewSource(network bool) (*Source, error) {
+	l, err := newListener(network)
 	if err != nil {
 		return nil, err
 	}

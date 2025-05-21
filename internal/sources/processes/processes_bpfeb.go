@@ -12,6 +12,12 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type processesExecArgKey struct {
+	Time uint64
+	Pid  uint32
+	I    uint8
+}
+
 // loadProcesses returns the embedded CollectionSpec for processes.
 func loadProcesses() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_ProcessesBytes)
@@ -54,6 +60,7 @@ type processesSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type processesProgramSpecs struct {
+	SockConnect4       *ebpf.ProgramSpec `ebpf:"sock_connect4"`
 	SyscallEnterExecve *ebpf.ProgramSpec `ebpf:"syscall_enter_execve"`
 	SyscallExitFork    *ebpf.ProgramSpec `ebpf:"syscall_exit_fork"`
 }
@@ -62,7 +69,9 @@ type processesProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type processesMapSpecs struct {
-	Events *ebpf.MapSpec `ebpf:"events"`
+	Events        *ebpf.MapSpec `ebpf:"events"`
+	ExecArgBuffer *ebpf.MapSpec `ebpf:"exec_arg_buffer"`
+	ExecArgs      *ebpf.MapSpec `ebpf:"exec_args"`
 }
 
 // processesVariableSpecs contains global variables before they are loaded into the kernel.
@@ -91,12 +100,16 @@ func (o *processesObjects) Close() error {
 //
 // It can be passed to loadProcessesObjects or ebpf.CollectionSpec.LoadAndAssign.
 type processesMaps struct {
-	Events *ebpf.Map `ebpf:"events"`
+	Events        *ebpf.Map `ebpf:"events"`
+	ExecArgBuffer *ebpf.Map `ebpf:"exec_arg_buffer"`
+	ExecArgs      *ebpf.Map `ebpf:"exec_args"`
 }
 
 func (m *processesMaps) Close() error {
 	return _ProcessesClose(
 		m.Events,
+		m.ExecArgBuffer,
+		m.ExecArgs,
 	)
 }
 
@@ -110,12 +123,14 @@ type processesVariables struct {
 //
 // It can be passed to loadProcessesObjects or ebpf.CollectionSpec.LoadAndAssign.
 type processesPrograms struct {
+	SockConnect4       *ebpf.Program `ebpf:"sock_connect4"`
 	SyscallEnterExecve *ebpf.Program `ebpf:"syscall_enter_execve"`
 	SyscallExitFork    *ebpf.Program `ebpf:"syscall_exit_fork"`
 }
 
 func (p *processesPrograms) Close() error {
 	return _ProcessesClose(
+		p.SockConnect4,
 		p.SyscallEnterExecve,
 		p.SyscallExitFork,
 	)
