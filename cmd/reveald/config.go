@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"log/slog"
@@ -25,7 +24,6 @@ import (
 	"github.com/runreveal/reveald/internal/sources/file"
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
-	"github.com/runreveal/reveald/internal/sources/net"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/processes"
 	"github.com/runreveal/reveald/internal/sources/scanner"
@@ -54,9 +52,6 @@ func init() {
 	})
 	loader.Register("nginx_syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &NginxSyslogConfig{}
-	})
-	loader.Register("net", func() loader.Builder[kawa.Source[types.Event]] {
-		return &NetConfig{}
 	})
 	loader.Register("processes", func() loader.Builder[kawa.Source[types.Event]] {
 		return &ProcessesConfig{}
