@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/kawa/x/mqtt"
 	"github.com/runreveal/kawa/x/s3"
+	"github.com/runreveal/lib/await"
 	"github.com/runreveal/lib/loader"
 	"github.com/runreveal/reveald/internal"
 	mqttDstkawad "github.com/runreveal/reveald/internal/destinations/mqtt"
@@ -23,6 +25,7 @@ import (
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
+	"github.com/runreveal/reveald/internal/sources/processes"
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
 	"github.com/runreveal/reveald/internal/sources/windows"
@@ -49,6 +52,9 @@ func init() {
 	})
 	loader.Register("nginx_syslog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &NginxSyslogConfig{}
+	})
+	loader.Register("processes", func() loader.Builder[kawa.Source[types.Event]] {
+		return &ProcessesConfig{}
 	})
 	loader.Register("journald", func() loader.Builder[kawa.Source[types.Event]] {
 		return &JournaldConfig{}
@@ -145,6 +151,28 @@ func (c *NginxSyslogConfig) Configure() (kawa.Source[types.Event], error) {
 	}), nil
 }
 
+type ProcessesConfig struct {
+	IgnoreNetwork bool `json:"ignoreNetwork"`
+}
+
+func (c *ProcessesConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info("configuring processes")
+	source, err := processes.NewSource(!c.IgnoreNetwork)
+	if err != nil {
+		return nil, err
+	}
+	return newMapSource(source, func(e *processes.Event) (types.Event, error) {
+		raw, err := json.Marshal(e)
+		if err != nil {
+			return types.Event{}, err
+		}
+		return types.Event{
+			RawLog:    raw,
+			EventTime: e.Time,
+		}, nil
+	}), nil
+}
+
 type EventLogConfig struct {
 	Channel string `json:"channel"`
 	Query   string `json:"query"`
@@ -165,33 +193,13 @@ func (c *EventLogConfig) Configure() (kawa.Source[types.Event], error) {
 	if err != nil {
 		return nil, err
 	}
-	return eventLogSource{source}, nil
-}
-
-// eventLogSource wraps [windows.EventLogSource] and normalizes the events.
-type eventLogSource struct {
-	source *windows.EventLogSource
-}
-
-func (s eventLogSource) Recv(ctx context.Context) (kawa.Message[types.Event], func(), error) {
-	msg, ack, err := s.source.Recv(ctx)
-	if err != nil {
-		return kawa.Message[types.Event]{}, nil, err
-	}
-	event, err := msg.Value.ToGeneric()
-	if err != nil {
-		return kawa.Message[types.Event]{}, nil, err
-	}
-	return kawa.Message[types.Event]{
-		Key:        msg.Key,
-		Value:      *event,
-		Topic:      msg.Topic,
-		Attributes: msg.Attributes,
-	}, ack, nil
-}
-
-func (s eventLogSource) Run(ctx context.Context) error {
-	return s.source.Run(ctx)
+	return newMapSource(source, func(e windows.Event) (types.Event, error) {
+		generic, err := e.ToGeneric()
+		if err != nil {
+			return types.Event{}, err
+		}
+		return *generic, nil
+	}), nil
 }
 
 type PrinterConfig struct {
@@ -298,4 +306,46 @@ func (c *MQTTSrcConfig) Configure() (kawa.Source[types.Event], error) {
 		mqtt.WithUserName(c.UserName),
 		mqtt.WithPassword(c.Password),
 	)
+}
+
+// mapSource wraps a [kawa.Source]
+// and transforms the event values according to a function.
+type mapSource[T, U any] struct {
+	source kawa.Source[T]
+	runner await.Runner
+	f      func(T) (U, error)
+}
+
+func newMapSource[T, U any](src kawa.Source[T], f func(T) (U, error)) mapSource[T, U] {
+	runner, _ := src.(await.Runner)
+	return mapSource[T, U]{
+		source: src,
+		runner: runner,
+		f:      f,
+	}
+}
+
+func (s mapSource[T, U]) Recv(ctx context.Context) (kawa.Message[U], func(), error) {
+	msg, ack, err := s.source.Recv(ctx)
+	if err != nil {
+		return kawa.Message[U]{}, nil, err
+	}
+	value, err := s.f(msg.Value)
+	if err != nil {
+		return kawa.Message[U]{}, nil, err
+	}
+	return kawa.Message[U]{
+		Key:        msg.Key,
+		Value:      value,
+		Topic:      msg.Topic,
+		Attributes: msg.Attributes,
+	}, ack, nil
+}
+
+func (s mapSource[T, U]) Run(ctx context.Context) error {
+	if s.runner == nil {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	return s.runner.Run(ctx)
 }
