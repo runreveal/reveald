@@ -81,10 +81,20 @@ struct {
 } exec_arg_buffer SEC(".maps");
 
 static int get_ppid(struct task_struct *task) {
+  if (task == NULL) {
+    return 0;
+  }
   struct task_struct *parent;
-  bpf_probe_read(&parent, sizeof(parent), &task->real_parent);
+  if (bpf_probe_read(&parent, sizeof(parent), &task->real_parent) != 0) {
+    return 0;
+  }
+  if (parent == NULL) {
+    return 0;
+  }
   int ppid;
-  bpf_probe_read(&ppid, sizeof(ppid), &parent->pid);
+  if (bpf_probe_read(&ppid, sizeof(ppid), &parent->pid) != 0) {
+    return 0;
+  }
   return ppid;
 }
 
@@ -198,7 +208,7 @@ int sched_process_exit(struct sched_process_exit_context *ctx) {
     result->header.pid = bpf_get_current_pid_tgid();
     struct task_struct *task = (struct task_struct *) bpf_get_current_task();
     result->header.ppid = get_ppid(task);
-    int exit_code;
+    int exit_code = 0;
     bpf_probe_read(&exit_code, sizeof(exit_code), &task->exit_code);
     result->exit_code = exit_code >> 8;
     result->signal_info = exit_code & 0xff;

@@ -7,8 +7,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -19,11 +21,6 @@ import (
 
 func init() {
 	rlimit.RemoveMemlock()
-}
-
-type processInfo struct {
-	program string
-	argv    []string
 }
 
 type listener struct {
@@ -99,7 +96,17 @@ func (l *listener) next(ctx context.Context) (*Event, error) {
 	switch tag := l.buf.RawSample[16]; tag {
 	case 0: // fork
 		event.ForkEvent = new(ForkEvent)
-		parentInfo := l.processes[event.ParentPID]
+		parentInfo, ok := l.processes[event.ParentPID]
+		if !ok {
+			// If the parent process isn't found, it's likely from before the trace started.
+			// Make an attempt to read the process info from /proc,
+			// but if it fails, don't block the event.
+			var err error
+			parentInfo, err = readProcessInfoFromProc(event.ParentPID)
+			if err == nil {
+				l.processes[event.ParentPID] = parentInfo
+			}
+		}
 		event.Program = parentInfo.program
 		event.Argv = slices.Clone(parentInfo.argv)
 		l.processes[event.PID] = parentInfo
@@ -180,6 +187,30 @@ func (l *listener) Close() error {
 	}
 	l.processes = nil
 	return nil
+}
+
+type processInfo struct {
+	program string
+	argv    []string
+}
+
+func readProcessInfoFromProc(pid int) (processInfo, error) {
+	var info processInfo
+	var err error
+	info.program, err = os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
+	if err != nil {
+		return processInfo{}, fmt.Errorf("query process %d info: %v", pid, err)
+	}
+	argv, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err != nil {
+		return processInfo{}, fmt.Errorf("query process %d info: %v", pid, err)
+	}
+	info.argv = strings.Split(string(argv), "\x00")
+	// Strip trailing NUL split.
+	if info.argv[len(info.argv)-1] == "" {
+		info.argv = info.argv[:len(info.argv)-1]
+	}
+	return info, nil
 }
 
 type execArgKey struct {
