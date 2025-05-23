@@ -157,6 +157,10 @@ func (l *listener) next(ctx context.Context) (*Event, error) {
 		if len(l.buf.RawSample) < 35 {
 			return nil, fmt.Errorf("connect data too short (%d bytes)", len(l.buf.RawSample))
 		}
+		info := l.processes[event.PID]
+		event.Program = info.program
+		event.Argv = info.argv
+
 		addr, _ := netip.AddrFromSlice(l.buf.RawSample[17:33])
 		if addr.Is4In6() {
 			addr = netip.AddrFrom4(addr.As4())
