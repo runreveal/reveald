@@ -14,14 +14,23 @@ type Event struct {
 	KernelTime uint64    `json:"bootTime"`
 	PID        int       `json:"pid"`
 	ParentPID  int       `json:"ppid"`
+	Program    string    `json:"program,omitempty"`
+	Argv       []string  `json:"argv,omitempty"`
 
+	ForkEvent    *ForkEvent    `json:"fork,omitempty"`
 	ExecEvent    *ExecEvent    `json:"exec,omitempty"`
+	ExitEvent    *ExitEvent    `json:"exit,omitempty"`
 	ConnectEvent *ConnectEvent `json:"connect,omitempty"`
 }
 
+type ForkEvent struct {
+}
+
 type ExecEvent struct {
-	Program string   `json:"program,omitempty"`
-	Argv    []string `json:"argv,omitempty"`
+}
+
+type ExitEvent struct {
+	Code int `json:"code"`
 }
 
 type ConnectEvent struct {

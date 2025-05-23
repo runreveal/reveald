@@ -60,9 +60,10 @@ type processesSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type processesProgramSpecs struct {
+	SchedProcessExit   *ebpf.ProgramSpec `ebpf:"sched_process_exit"`
+	SchedProcessFork   *ebpf.ProgramSpec `ebpf:"sched_process_fork"`
 	SockConnect4       *ebpf.ProgramSpec `ebpf:"sock_connect4"`
 	SyscallEnterExecve *ebpf.ProgramSpec `ebpf:"syscall_enter_execve"`
-	SyscallExitFork    *ebpf.ProgramSpec `ebpf:"syscall_exit_fork"`
 }
 
 // processesMapSpecs contains maps before they are loaded into the kernel.
@@ -123,16 +124,18 @@ type processesVariables struct {
 //
 // It can be passed to loadProcessesObjects or ebpf.CollectionSpec.LoadAndAssign.
 type processesPrograms struct {
+	SchedProcessExit   *ebpf.Program `ebpf:"sched_process_exit"`
+	SchedProcessFork   *ebpf.Program `ebpf:"sched_process_fork"`
 	SockConnect4       *ebpf.Program `ebpf:"sock_connect4"`
 	SyscallEnterExecve *ebpf.Program `ebpf:"syscall_enter_execve"`
-	SyscallExitFork    *ebpf.Program `ebpf:"syscall_exit_fork"`
 }
 
 func (p *processesPrograms) Close() error {
 	return _ProcessesClose(
+		p.SchedProcessExit,
+		p.SchedProcessFork,
 		p.SockConnect4,
 		p.SyscallEnterExecve,
-		p.SyscallExitFork,
 	)
 }
 

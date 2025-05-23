@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -20,30 +21,34 @@ func init() {
 	rlimit.RemoveMemlock()
 }
 
+type processInfo struct {
+	program string
+	argv    []string
+}
+
 type listener struct {
 	objs  processesObjects
-	links [3]link.Link
+	links [4]link.Link
 	r     *ringbuf.Reader
 	buf   ringbuf.Record
+
+	processes map[int]processInfo
 }
 
 func newListener(network bool) (_ *listener, err error) {
-	l := new(listener)
+	l := &listener{
+		processes: make(map[int]processInfo),
+	}
 	if err := loadProcessesObjects(&l.objs, nil); err != nil {
 		return nil, fmt.Errorf("load bpf program: %v", err)
 	}
 	defer func() {
 		if err != nil {
-			for i := len(l.links) - 1; i >= 0; i-- {
-				if ll := l.links[i]; ll != nil {
-					l.links[i].Close()
-				}
-			}
-			l.objs.Close()
+			l.Close()
 		}
 	}()
 
-	l.links[0], err = link.Tracepoint("syscalls", "sys_exit_fork", l.objs.SyscallExitFork, nil)
+	l.links[0], err = link.Tracepoint("sched", "sched_process_fork", l.objs.SchedProcessFork, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +56,21 @@ func newListener(network bool) (_ *listener, err error) {
 	if err != nil {
 		return nil, err
 	}
-	l.links[2], err = link.AttachCgroup(link.CgroupOptions{
-		Program: l.objs.SockConnect4,
-		Attach:  ebpf.AttachCGroupInet4Connect,
-		// TODO(soon): Detect from mountpoints?
-		// See https://github.com/cilium/ebpf/blob/49a06b1fe26190a4c2a702932f611c6eff908d3a/examples/cgroup_skb/main.go
-		Path: "/sys/fs/cgroup/unified",
-	})
+	l.links[2], err = link.Tracepoint("sched", "sched_process_exit", l.objs.SchedProcessExit, nil)
 	if err != nil {
 		return nil, err
+	}
+	if network {
+		l.links[3], err = link.AttachCgroup(link.CgroupOptions{
+			Program: l.objs.SockConnect4,
+			Attach:  ebpf.AttachCGroupInet4Connect,
+			// TODO(soon): Detect from mountpoints?
+			// See https://github.com/cilium/ebpf/blob/49a06b1fe26190a4c2a702932f611c6eff908d3a/examples/cgroup_skb/main.go
+			Path: "/sys/fs/cgroup/unified",
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	l.r, err = ringbuf.NewReader(l.objs.Events)
@@ -87,35 +98,55 @@ func (l *listener) next(ctx context.Context) (*Event, error) {
 
 	switch tag := l.buf.RawSample[16]; tag {
 	case 0: // fork
+		event.ForkEvent = new(ForkEvent)
+		parentInfo := l.processes[event.ParentPID]
+		event.Program = parentInfo.program
+		event.Argv = slices.Clone(parentInfo.argv)
+		l.processes[event.PID] = parentInfo
 	case 1: // exec
 		if len(l.buf.RawSample) < 18 {
 			return nil, fmt.Errorf("exec data too short (%d bytes)", len(l.buf.RawSample))
 		}
 		event.ExecEvent = new(ExecEvent)
 		var err error
-		event.ExecEvent.Program, err = parseCString(l.buf.RawSample[18:])
+		event.Program, err = parseCString(l.buf.RawSample[18:])
 		if err != nil {
 			return nil, fmt.Errorf("program: %v", err)
 		}
 
 		argc := l.buf.RawSample[17]
-		event.ExecEvent.Argv = make([]string, argc)
+		event.Argv = make([]string, argc)
 		var argValue []byte
-		for i := range event.ExecEvent.Argv {
+		for i := range event.Argv {
 			err := l.objs.ExecArgs.LookupAndDelete(execArgKey{
 				time: event.KernelTime,
 				pid:  uint32(event.PID),
 				i:    uint8(i),
 			}, &argValue)
 			if err != nil {
-				return nil, fmt.Errorf("%s: argv[%d]: %v", filepath.Base(event.ExecEvent.Program), i, err)
+				return nil, fmt.Errorf("%s: argv[%d]: %v", filepath.Base(event.Program), i, err)
 			}
-			event.ExecEvent.Argv[i], err = parseCString(argValue)
+			event.Argv[i], err = parseCString(argValue)
 			if err != nil {
-				return nil, fmt.Errorf("%s: argv[%d]: %v", filepath.Base(event.ExecEvent.Program), i, err)
+				return nil, fmt.Errorf("%s: argv[%d]: %v", filepath.Base(event.Program), i, err)
 			}
 		}
-	case 2: // connect
+		l.processes[event.PID] = processInfo{
+			program: event.Program,
+			argv:    slices.Clone(event.Argv),
+		}
+	case 2: // exit
+		if len(l.buf.RawSample) < 22 {
+			return nil, fmt.Errorf("exec data too short (%d bytes)", len(l.buf.RawSample))
+		}
+		info := l.processes[event.PID]
+		delete(l.processes, event.PID)
+		event.Program = info.program
+		event.Argv = info.argv
+		event.ExitEvent = &ExitEvent{
+			Code: int(binary.NativeEndian.Uint32(l.buf.RawSample[17:])),
+		}
+	case 3: // connect
 		if len(l.buf.RawSample) < 35 {
 			return nil, fmt.Errorf("connect data too short (%d bytes)", len(l.buf.RawSample))
 		}
@@ -134,16 +165,20 @@ func (l *listener) next(ctx context.Context) (*Event, error) {
 }
 
 func (l *listener) Close() error {
-	var closeErrors [4]error
-	closeErrors[0] = l.r.Close()
-	closeErrors[1] = l.links[1].Close()
-	closeErrors[2] = l.links[0].Close()
-	closeErrors[3] = l.objs.Close()
+	var closeErrors [len(l.links) + 1]error
+	for i := range l.links {
+		if ll := l.links[len(l.links)-i-1]; ll != nil {
+			closeErrors[i] = ll.Close()
+			l.links[len(l.links)-i-1] = nil
+		}
+	}
+	closeErrors[len(closeErrors)-1] = l.objs.Close()
 	for _, err := range closeErrors {
 		if err != nil {
 			return err
 		}
 	}
+	l.processes = nil
 	return nil
 }
 

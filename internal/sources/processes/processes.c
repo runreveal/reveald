@@ -18,6 +18,7 @@
 struct task_struct {
   int pid;
   struct task_struct *real_parent;
+  int exit_code;
 } __attribute__((preserve_access_index));
 
 #define EXEC_FILENAME_SIZE 1006
@@ -26,7 +27,8 @@ struct task_struct {
 
 #define DATA_TYPE_FORK 0
 #define DATA_TYPE_EXEC 1
-#define DATA_TYPE_CONNECT 2
+#define DATA_TYPE_EXIT 2
+#define DATA_TYPE_CONNECT 3
 
 struct tagged_data_header {
   __u64 time;
@@ -45,6 +47,12 @@ struct network_data {
   struct tagged_data_header header;
   __u8 daddr[16];
   __u16 dport;
+} __attribute__((packed));
+
+struct exit_data {
+  struct tagged_data_header header;
+  __u32 exit_code;
+  __u8 signal_info;
 } __attribute__((packed));
 
 struct {
@@ -80,25 +88,27 @@ static int get_ppid(struct task_struct *task) {
   return ppid;
 }
 
-struct sys_exit_fork_context {
+struct sched_process_fork_context {
   __u16 common_type;
   __u8 common_flags;
   __u8 common_preempt_count;
   __s32 common_pid;
 
-  __s32 __syscall_nr;
-  __s64 ret;
+  char parent_comm[16];
+  __s32 parent_pid;
+  char child_comm[16];
+  __s32 child_pid;
 };
 
-SEC("tracepoint/syscalls/sys_exit_fork")
-int syscall_exit_fork(struct sys_exit_fork_context *ctx) {
+SEC("tracepoint/sched/sched_process_fork")
+int sched_process_fork(struct sched_process_fork_context *ctx) {
   struct tagged_data_header *result;
   result = bpf_ringbuf_reserve(&events, sizeof(struct tagged_data_header), 0);
   if (result != NULL) {
     result->data_type = DATA_TYPE_FORK;
     result->time = bpf_ktime_get_ns();
-    result->pid = bpf_get_current_pid_tgid();
-    result->ppid = get_ppid((struct task_struct *) bpf_get_current_task());
+    result->pid = ctx->child_pid;
+    result->ppid = ctx->parent_pid;
     bpf_ringbuf_submit(result, 0);
   }
   return 0;
@@ -164,6 +174,36 @@ int syscall_enter_execve(struct sys_enter_execve_context *ctx) {
   result->argc = argc;
   bpf_ringbuf_submit(result, 0);
 
+  return 0;
+}
+
+struct sched_process_exit_context {
+  __u16 common_type;
+  __u8 common_flags;
+  __u8 common_preempt_count;
+  __s32 common_pid;
+
+  char comm[16];
+  __s32 pid;
+  __s32 prio;
+};
+
+SEC("tracepoint/sched/sched_process_exit")
+int sched_process_exit(struct sched_process_exit_context *ctx) {
+  struct exit_data *result;
+  result = bpf_ringbuf_reserve(&events, sizeof(struct exit_data), 0);
+  if (result != NULL) {
+    result->header.data_type = DATA_TYPE_EXIT;
+    result->header.time = bpf_ktime_get_ns();
+    result->header.pid = bpf_get_current_pid_tgid();
+    struct task_struct *task = (struct task_struct *) bpf_get_current_task();
+    result->header.ppid = get_ppid(task);
+    int exit_code;
+    bpf_probe_read(&exit_code, sizeof(exit_code), &task->exit_code);
+    result->exit_code = exit_code >> 8;
+    result->signal_info = exit_code & 0xff;
+    bpf_ringbuf_submit(result, 0);
+  }
   return 0;
 }
 
