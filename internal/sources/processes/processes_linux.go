@@ -25,7 +25,7 @@ func init() {
 
 type listener struct {
 	objs  processesObjects
-	links [4]link.Link
+	links [5]link.Link
 	r     *ringbuf.Reader
 	buf   ringbuf.Record
 
@@ -58,12 +58,22 @@ func newListener(network bool) (_ *listener, err error) {
 		return nil, err
 	}
 	if network {
+		// TODO(soon): Detect from mountpoints?
+		// See https://github.com/cilium/ebpf/blob/49a06b1fe26190a4c2a702932f611c6eff908d3a/examples/cgroup_skb/main.go
+		const cgroupPath = "/sys/fs/cgroup/unified"
+
 		l.links[3], err = link.AttachCgroup(link.CgroupOptions{
 			Program: l.objs.SockConnect4,
 			Attach:  ebpf.AttachCGroupInet4Connect,
-			// TODO(soon): Detect from mountpoints?
-			// See https://github.com/cilium/ebpf/blob/49a06b1fe26190a4c2a702932f611c6eff908d3a/examples/cgroup_skb/main.go
-			Path: "/sys/fs/cgroup/unified",
+			Path:    cgroupPath,
+		})
+		if err != nil {
+			return nil, err
+		}
+		l.links[4], err = link.AttachCgroup(link.CgroupOptions{
+			Program: l.objs.SockConnect6,
+			Attach:  ebpf.AttachCGroupInet6Connect,
+			Path:    cgroupPath,
 		})
 		if err != nil {
 			return nil, err

@@ -243,10 +243,43 @@ int sock_connect4(struct bpf_sock_addr *ctx) {
     result->header.data_type = DATA_TYPE_CONNECT;
     result->header.time = bpf_ktime_get_ns();
     result->header.pid = bpf_get_current_pid_tgid();
+    // TODO(someday): bpf_get_current_task not permitted in this program type.
     // result->header.ppid = get_ppid((struct task_struct *) bpf_get_current_task());
     result->header.ppid = 0;
 
     fill_4in6_address(&result->daddr[0], bpf_ntohl(ctx->user_ip4));
+    result->dport = bpf_ntohs(ctx->user_port);
+    bpf_ringbuf_submit(result, 0);
+  }
+
+  return 1;
+}
+
+SEC("cgroup/connect6")
+int sock_connect6(struct bpf_sock_addr *ctx) {
+  if (ctx->type != SOCK_STREAM || ctx->family != AF_INET6) {
+    return 1;
+  }
+
+  struct network_data *result;
+  result = bpf_ringbuf_reserve(&events, sizeof(struct network_data), 0);
+  if (result != NULL) {
+    result->header.data_type = DATA_TYPE_CONNECT;
+    result->header.time = bpf_ktime_get_ns();
+    result->header.pid = bpf_get_current_pid_tgid();
+    // TODO(someday): bpf_get_current_task not permitted in this program type.
+    // result->header.ppid = get_ppid((struct task_struct *) bpf_get_current_task());
+    result->header.ppid = 0;
+
+    __u8 i, j;
+    for (i = 0, j = 0; i < 4; i++) {
+    __u32 addr_part = bpf_ntohl(ctx->user_ip6[i]);
+      result->daddr[j++] = addr_part >> 24;
+      result->daddr[j++] = addr_part >> 16;
+      result->daddr[j++] = addr_part >> 8;
+      result->daddr[j++] = addr_part;
+    }
+
     result->dport = bpf_ntohs(ctx->user_port);
     bpf_ringbuf_submit(result, 0);
   }

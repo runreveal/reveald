@@ -63,6 +63,7 @@ type processesProgramSpecs struct {
 	SchedProcessExit   *ebpf.ProgramSpec `ebpf:"sched_process_exit"`
 	SchedProcessFork   *ebpf.ProgramSpec `ebpf:"sched_process_fork"`
 	SockConnect4       *ebpf.ProgramSpec `ebpf:"sock_connect4"`
+	SockConnect6       *ebpf.ProgramSpec `ebpf:"sock_connect6"`
 	SyscallEnterExecve *ebpf.ProgramSpec `ebpf:"syscall_enter_execve"`
 }
 
@@ -127,6 +128,7 @@ type processesPrograms struct {
 	SchedProcessExit   *ebpf.Program `ebpf:"sched_process_exit"`
 	SchedProcessFork   *ebpf.Program `ebpf:"sched_process_fork"`
 	SockConnect4       *ebpf.Program `ebpf:"sock_connect4"`
+	SockConnect6       *ebpf.Program `ebpf:"sock_connect6"`
 	SyscallEnterExecve *ebpf.Program `ebpf:"syscall_enter_execve"`
 }
 
@@ -135,6 +137,7 @@ func (p *processesPrograms) Close() error {
 		p.SchedProcessExit,
 		p.SchedProcessFork,
 		p.SockConnect4,
+		p.SockConnect6,
 		p.SyscallEnterExecve,
 	)
 }
