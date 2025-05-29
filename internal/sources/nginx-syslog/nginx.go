@@ -199,7 +199,7 @@ func parseNginxLog(logLine string) (*nginxLogEntry, error) {
 	var nginxLogRegex = regexp.MustCompile(`^(\S+) - (\S+) \[([\w:\/\-\s\+]+)\] "([^"]+)" (\S+) (\S+) "([^"]*)" "([^"]*)"$`)
 	matches := nginxLogRegex.FindStringSubmatch(logLine)
 
-	if matches == nil || len(matches) < 9 {
+	if len(matches) < 9 {
 		return nil, fmt.Errorf("log line does not match the nginx combined log format")
 	}
 
