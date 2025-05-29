@@ -1,6 +1,6 @@
 module github.com/runreveal/reveald
 
-go 1.21.5
+go 1.24
 
 require (
 	github.com/carlmjohnson/requests v0.23.4
