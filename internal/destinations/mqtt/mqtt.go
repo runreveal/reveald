@@ -12,7 +12,7 @@ type MQTT struct {
 	wrapped *mqtt.Destination
 }
 
-func NewMQTT(opts ...mqtt.OptFunc) (*MQTT, error) {
+func NewMQTT(opts ...mqtt.Option) (*MQTT, error) {
 	dst, err := mqtt.NewDestination(opts...)
 	if err != nil {
 		return nil, err
