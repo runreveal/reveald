@@ -1,14 +1,16 @@
 module github.com/runreveal/reveald
 
-go 1.21.5
+go 1.23.0
+
+toolchain go1.24.5
 
 require (
 	github.com/carlmjohnson/requests v0.23.4
-	github.com/runreveal/kawa v0.2.1
+	github.com/runreveal/kawa v0.2.2-0.20250409213345-1daf28245005
 	github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c
 	github.com/runreveal/lib/loader v0.0.0-20231128193746-50c2ad68891c
 	github.com/spf13/cobra v1.7.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.21.0
 	gopkg.in/mcuadros/go-syslog.v2 v2.3.0
 )
@@ -17,7 +19,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.313 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.4.3 // indirect
-	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -31,9 +33,10 @@ require (
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
-	go.opentelemetry.io/otel v1.19.0 // indirect
-	go.opentelemetry.io/otel/metric v1.19.0 // indirect
-	go.opentelemetry.io/otel/trace v1.19.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/otel v1.37.0 // indirect
+	go.opentelemetry.io/otel/metric v1.37.0 // indirect
+	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
