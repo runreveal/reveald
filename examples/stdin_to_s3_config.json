@@ -1,0 +1,17 @@
+{
+  // Example config for reading from stdin and writing to S3
+  "sources": {
+    "stdin_input": {
+      "type": "scanner"
+    }
+  },
+  "destinations": {
+    "s3_output": {
+      "type": "s3",
+      "bucketName": "fluent-bit-deleteme",
+      "bucketRegion": "us-east-2",
+      "pathPrefix": "logs/",
+      "batchSize": 100
+    }
+  }
+}

@@ -34,3 +34,4 @@ jobs:
         args: release --debug --clean -f .goreleaser.public.yaml
       env:
         GITHUB_TOKEN: ${{ secrets.GO_RELEASER }}
+        FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
