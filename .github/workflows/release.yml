@@ -26,11 +26,11 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - uses: goreleaser/goreleaser-action@v5
+    - uses: goreleaser/goreleaser-action@v6
       with:
         # either 'goreleaser' (default) or 'goreleaser-pro':
-        distribution: goreleaser
-        version: latest
+        distribution: goreleaser-pro
+        version: "~> v2"
         args: release --debug --clean -f .goreleaser.public.yaml
       env:
         GITHUB_TOKEN: ${{ secrets.GO_RELEASER }}
