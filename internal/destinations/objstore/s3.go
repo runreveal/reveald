@@ -28,11 +28,11 @@ type S3Config struct {
 
 func NewS3(cfg S3Config) (*S3, error) {
 	var configOpts []func(*config.LoadOptions) error
-	
+
 	if cfg.Region != "" {
 		configOpts = append(configOpts, config.WithRegion(cfg.Region))
 	}
-	
+
 	if cfg.AccessKeyID != "" && cfg.SecretAccessKey != "" {
 		staticCreds := credentials.NewStaticCredentialsProvider(
 			cfg.AccessKeyID,

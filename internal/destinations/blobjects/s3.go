@@ -68,14 +68,14 @@ func WithBatchSize(batchSize int) Option {
 type S3 struct {
 	batcher *batch.Destination[types.Event]
 
-	bucketName       string
-	workspaceID      string
-	pathPrefix       string
-	bucketRegion     string
-	accessKeyID      string
-	secretAccessKey  string
-	customEndpoint   string
-	batchSize        int
+	bucketName      string
+	workspaceID     string
+	pathPrefix      string
+	bucketRegion    string
+	accessKeyID     string
+	secretAccessKey string
+	customEndpoint  string
+	batchSize       int
 
 	objStore *objstore.ObjStorageManager
 }
@@ -91,7 +91,7 @@ func New(opts ...Option) *S3 {
 	if ret.bucketRegion == "" {
 		ret.bucketRegion = "us-east-2"
 	}
-	
+
 	ret.batcher = batch.NewDestination[types.Event](ret,
 		batch.Raise[types.Event](),
 		batch.FlushLength(ret.batchSize),
@@ -125,17 +125,17 @@ func (s *S3) initObjStore() error {
 		SecretAccessKey: s.secretAccessKey,
 		CustomEndpoint:  s.customEndpoint,
 	}
-	
+
 	s3Client, err := objstore.NewS3(s3Config)
 	if err != nil {
 		return fmt.Errorf("failed to create S3 client: %w", err)
 	}
-	
+
 	s.objStore, err = objstore.New(s3Client)
 	if err != nil {
 		return fmt.Errorf("failed to create object store manager: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -146,7 +146,7 @@ func (s *S3) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Ev
 func (s *S3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
 	var buf bytes.Buffer
 	gzipBuffer := gzip.NewWriter(&buf)
-	
+
 	for _, msg := range msgs {
 		_, err := gzipBuffer.Write(msg.Value.RawLog)
 		if err != nil {
@@ -157,7 +157,7 @@ func (s *S3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error 
 			return err
 		}
 	}
-	
+
 	if err := gzipBuffer.Close(); err != nil {
 		return err
 	}
