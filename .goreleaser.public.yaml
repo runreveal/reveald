@@ -35,6 +35,22 @@ archives:
     files:
     - none*
 
+nfpms:
+  - vendor: RunReveal Inc.
+    homepage: https://runreveal.com
+    license: Proprietary
+    description: reveald is an all-in-one event ingestion daemon
+    maintainer: RunReveal <contact@runreveal.com>
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    builds:
+      - reveald
+
+furies:
+  - account: runreveal
+
 changelog:
   use: github-native
 
