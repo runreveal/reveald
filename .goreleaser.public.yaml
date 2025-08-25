@@ -16,6 +16,13 @@ builds:
       - linux
       - darwin
       - windows
+    env:
+      - CGO_ENABLED=0
+    # Windows requires CGO for the Windows event log source
+    overrides:
+      - goos: windows
+        env:
+          - CGO_ENABLED=1
 
 archives:
   - format: tar.gz
