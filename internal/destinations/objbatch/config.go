@@ -14,11 +14,11 @@ type BlobConfig struct {
 	BatchSize      int           `json:"batchSize"`
 	FlushFrequency time.Duration `json:"flushFrequency"`
 
-	ObjStore loader.Builder[objstore.BlobLike] `json:"s3"`
+	ObjStore loader.Loader[objstore.BlobLike] `json:"s3"`
 }
 
 func (bc BlobConfig) Configure() (kawa.Destination[types.Event], error) {
-	if bc.ObjStore == nil {
+	if bc.ObjStore.Builder == nil {
 		return nil, errors.New("objstore is required")
 	}
 	bl, err := bc.ObjStore.Configure()
