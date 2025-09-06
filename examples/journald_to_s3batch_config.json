@@ -1,0 +1,21 @@
+{
+  // Example config for reading from journald and writing to S3 with batching
+  "sources": {
+    "journald": {
+      "maxLineLenKB": 200,
+      "type": "journald"
+    }
+  },
+  "destinations": {
+    "s3_batch": {
+      "type": "s3b",
+      "batchSize": 100,
+      "flushFrequency": "30s",
+      "s3": {
+        "type": "s3",
+        "region": "us-east-2",
+        "bucket": "my-logs-bucket"
+      }
+    }
+  }
+}

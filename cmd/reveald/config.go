@@ -15,6 +15,7 @@ import (
 	"github.com/runreveal/lib/loader"
 	"github.com/runreveal/reveald/internal"
 	mqttDstkawad "github.com/runreveal/reveald/internal/destinations/mqtt"
+	"github.com/runreveal/reveald/internal/destinations/objbatch"
 	"github.com/runreveal/reveald/internal/destinations/printer"
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
 	s3kawad "github.com/runreveal/reveald/internal/destinations/s3"
@@ -66,6 +67,9 @@ func init() {
 	})
 	loader.Register("s3", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &S3Config{}
+	})
+	loader.Register("s3b", func() loader.Builder[kawa.Destination[types.Event]] {
+		return &objbatch.BlobConfig{}
 	})
 	loader.Register("runreveal", func() loader.Builder[kawa.Destination[types.Event]] {
 		return &RunRevealConfig{}

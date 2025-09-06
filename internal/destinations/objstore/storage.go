@@ -39,8 +39,8 @@ func New(objstr BlobLike) (*ObjStorageManager, error) {
 	return &ObjStorageManager{svc: objstr}, nil
 }
 
-func (m *ObjStorageManager) ReadAll(ctx context.Context, wkspID, bucket, key string) ([]byte, error) {
-	readCloser, err := m.Read(ctx, wkspID, bucket, key)
+func (m *ObjStorageManager) ReadAll(ctx context.Context, bucket, key string) ([]byte, error) {
+	readCloser, err := m.Read(ctx, bucket, key)
 	if err != nil {
 		return nil, fmt.Errorf("S3 data read error: %w", err)
 	}
@@ -58,13 +58,12 @@ func (m *ObjStorageManager) ReadAll(ctx context.Context, wkspID, bucket, key str
 }
 
 // Read reads the data from the s3 bucket for the given key.
-// The given key will be prefixed with the workspaceID.
 // Read returns an io.ReadCloser that must be closed by the caller.
-func (m *ObjStorageManager) Read(ctx context.Context, wkspID, bucket, key string) (io.ReadCloser, error) {
+func (m *ObjStorageManager) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	// Create a new S3 session and create the request
 	input := GetObjectInput{
 		Bucket: bucket,
-		Key:    wkspID + "/" + key,
+		Key:    key,
 	}
 
 	// Return the object and check for error
@@ -78,26 +77,25 @@ func (m *ObjStorageManager) Read(ctx context.Context, wkspID, bucket, key string
 
 // Store stores the data in the s3 bucket for the given key.
 // data will be read until io.EOF is returned from Read()
-// The given key will be prefixed with the workspaceID.
 // Store blocks until data has been fully read, so must be run in a separate
 // goroutine from what is writing to the other side of the io.Reader, if
 // necessary.
-func (m *ObjStorageManager) Store(ctx context.Context, wkspID, bucket, key string, data io.Reader) error {
-	if key == "" || wkspID == "" || bucket == "" {
-		return fmt.Errorf("wkspID, bucket and key are required")
+func (m *ObjStorageManager) Store(ctx context.Context, bucket, key string, data io.Reader) error {
+	if key == "" || bucket == "" {
+		return fmt.Errorf("bucket and key are required")
 	}
 
 	return m.svc.PutObject(ctx, PutObjectInput{
 		Bucket: bucket,
-		Key:    wkspID + "/" + key,
+		Key:    key,
 		Data:   data,
 	})
 }
 
-func (m *ObjStorageManager) GetSignedURL(ctx context.Context, wkspID, bucket, key string) (string, error) {
+func (m *ObjStorageManager) GetSignedURL(ctx context.Context, bucket, key string) (string, error) {
 	r, err := m.svc.GetSignedURL(ctx, SignedURLInput{
 		Bucket: bucket,
-		Key:    wkspID + "/" + key,
+		Key:    key,
 	})
 	if err != nil {
 		return "", fmt.Errorf("S3 GetSignedURL error (%s): %w", key, err)
