@@ -65,6 +65,12 @@ func WithBatchSize(batchSize int) Option {
 	}
 }
 
+func WithFlushFrequency(flushFrequency time.Duration) Option {
+	return func(s *S3) {
+		s.flushFrequency = flushFrequency
+	}
+}
+
 type S3 struct {
 	batcher *batch.Destination[types.Event]
 
@@ -76,6 +82,7 @@ type S3 struct {
 	secretAccessKey string
 	customEndpoint  string
 	batchSize       int
+	flushFrequency  time.Duration
 
 	objStore *objstore.ObjStorageManager
 }
@@ -91,11 +98,14 @@ func New(opts ...Option) *S3 {
 	if ret.bucketRegion == "" {
 		ret.bucketRegion = "us-east-2"
 	}
+	if ret.flushFrequency == 0 {
+		ret.flushFrequency = 30 * time.Second
+	}
 
 	ret.batcher = batch.NewDestination[types.Event](ret,
 		batch.Raise[types.Event](),
 		batch.FlushLength(ret.batchSize),
-		batch.FlushFrequency(5*time.Second),
+		batch.FlushFrequency(ret.flushFrequency),
 	)
 	return ret
 }
