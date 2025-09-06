@@ -23,13 +23,27 @@ import (
 )
 
 type Journald struct {
-	msgC chan kawa.MsgAck[types.Event]
+	msgC         chan kawa.MsgAck[types.Event]
+	maxLineLenKB int
 }
 
-func New() *Journald {
-	return &Journald{
-		msgC: make(chan kawa.MsgAck[types.Event]),
+type Option func(*Journald)
+
+func WithMaxLineLenKB(maxLineLenKB int) Option {
+	return func(j *Journald) {
+		j.maxLineLenKB = maxLineLenKB
 	}
+}
+
+func New(opts ...Option) *Journald {
+	j := &Journald{
+		msgC:         make(chan kawa.MsgAck[types.Event]),
+		maxLineLenKB: 64, // default
+	}
+	for _, opt := range opts {
+		opt(j)
+	}
+	return j
 }
 
 func (s *Journald) Run(ctx context.Context) error {
@@ -97,6 +111,9 @@ func (s *Journald) recvLoop(ctx context.Context) error {
 		return err
 	}
 	scanner := bufio.NewScanner(stdout)
+	// Configure scanner buffer with the specified maximum line length
+	maxLineLen := s.maxLineLenKB * 1024 // convert KB to bytes
+	scanner.Buffer(make([]byte, maxLineLen), maxLineLen)
 	var wg sync.WaitGroup
 
 	slog.Info("reading journald")
