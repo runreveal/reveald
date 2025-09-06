@@ -17,48 +17,6 @@ import (
 
 type Option func(*S3)
 
-func WithBucketName(bucketName string) Option {
-	return func(s *S3) {
-		s.bucketName = bucketName
-	}
-}
-
-func WithWorkspaceID(workspaceID string) Option {
-	return func(s *S3) {
-		s.workspaceID = workspaceID
-	}
-}
-
-func WithPathPrefix(pathPrefix string) Option {
-	return func(s *S3) {
-		s.pathPrefix = pathPrefix
-	}
-}
-
-func WithBucketRegion(bucketRegion string) Option {
-	return func(s *S3) {
-		s.bucketRegion = bucketRegion
-	}
-}
-
-func WithAccessKeyID(accessKeyID string) Option {
-	return func(s *S3) {
-		s.accessKeyID = accessKeyID
-	}
-}
-
-func WithSecretAccessKey(secretAccessKey string) Option {
-	return func(s *S3) {
-		s.secretAccessKey = secretAccessKey
-	}
-}
-
-func WithCustomEndpoint(customEndpoint string) Option {
-	return func(s *S3) {
-		s.customEndpoint = customEndpoint
-	}
-}
-
 func WithBatchSize(batchSize int) Option {
 	return func(s *S3) {
 		s.batchSize = batchSize
@@ -71,20 +29,22 @@ func WithFlushFrequency(flushFrequency time.Duration) Option {
 	}
 }
 
+func WithBlobLike(blobLike objstore.BlobLike) Option {
+	return func(s *S3) {
+		s.blobLike = blobLike
+	}
+}
+
 type S3 struct {
 	batcher *batch.Destination[types.Event]
 
-	bucketName      string
-	workspaceID     string
-	pathPrefix      string
-	bucketRegion    string
-	accessKeyID     string
-	secretAccessKey string
-	customEndpoint  string
-	batchSize       int
-	flushFrequency  time.Duration
+	pathPrefix string
+	bucketName string
 
-	objStore *objstore.ObjStorageManager
+	batchSize      int
+	flushFrequency time.Duration
+	blobLike       objstore.BlobLike
+	objStore       *objstore.ObjStorageManager
 }
 
 func New(opts ...Option) *S3 {
@@ -95,14 +55,11 @@ func New(opts ...Option) *S3 {
 	if ret.batchSize == 0 {
 		ret.batchSize = 100
 	}
-	if ret.bucketRegion == "" {
-		ret.bucketRegion = "us-east-2"
-	}
 	if ret.flushFrequency == 0 {
 		ret.flushFrequency = 30 * time.Second
 	}
 
-	ret.batcher = batch.NewDestination[types.Event](ret,
+	ret.batcher = batch.NewDestination(ret,
 		batch.Raise[types.Event](),
 		batch.FlushLength(ret.batchSize),
 		batch.FlushFrequency(ret.flushFrequency),
@@ -111,42 +68,16 @@ func New(opts ...Option) *S3 {
 }
 
 func (s *S3) Run(ctx context.Context) error {
-	if s.bucketName == "" {
-		return errors.New("missing bucket name")
+	if s.blobLike == nil {
+		return errors.New("no blob destination initialized")
 	}
-	if s.workspaceID == "" {
-		return errors.New("missing workspace ID")
-	}
-
-	// Initialize objstore using the existing S3 implementation
-	if err := s.initObjStore(); err != nil {
-		return fmt.Errorf("failed to initialize object store: %w", err)
+	var err error
+	s.objStore, err = objstore.New(s.blobLike)
+	if err != nil {
+		return errors.New("objstore failed to initialize")
 	}
 
 	return s.batcher.Run(ctx)
-}
-
-func (s *S3) initObjStore() error {
-	s3Config := objstore.S3Config{
-		Region:          s.bucketRegion,
-		Type:            "s3",
-		Bucket:          s.bucketName,
-		AccessKeyID:     s.accessKeyID,
-		SecretAccessKey: s.secretAccessKey,
-		CustomEndpoint:  s.customEndpoint,
-	}
-
-	s3Client, err := objstore.NewS3(s3Config)
-	if err != nil {
-		return fmt.Errorf("failed to create S3 client: %w", err)
-	}
-
-	s.objStore, err = objstore.New(s3Client)
-	if err != nil {
-		return fmt.Errorf("failed to create object store manager: %w", err)
-	}
-
-	return nil
 }
 
 func (s *S3) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Event]) error {
@@ -179,5 +110,5 @@ func (s *S3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error 
 		time.Now().Unix(),
 	)
 
-	return s.objStore.Store(ctx, s.workspaceID, s.bucketName, key, bytes.NewReader(buf.Bytes()))
+	return s.objStore.Store(ctx, s.bucketName, key, bytes.NewReader(buf.Bytes()))
 }
