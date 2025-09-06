@@ -22,7 +22,6 @@ func TestS3DataStoreStream(t *testing.T) {
 	objmgr, err := New(s3)
 	assert.NoError(t, err, "should not error on s3 init")
 
-	wkspID := "12345-go_test"
 	key := ksuid.New().String()
 
 	// Create a pipe to connect the writer and the S3 uploader
@@ -47,12 +46,12 @@ func TestS3DataStoreStream(t *testing.T) {
 		assert.NoError(t, err, "should not error on close")
 	}()
 
-	err = objmgr.Store(ctx, wkspID, "pfpwfpwwpfwp", key, pr)
+	err = objmgr.Store(ctx, "pfpwfpwwpfwp", key, pr)
 	assert.NoError(t, err, "should not error on store")
 
 	t.Log("finished uploading.")
 
-	actualData, err := objmgr.ReadAll(ctx, wkspID, "pfpwfpwwpfwp", key)
+	actualData, err := objmgr.ReadAll(ctx, "pfpwfpwwpfwp", key)
 
 	assert.NoError(t, err, "should not error on fetch")
 	assert.Equal(t, 25_000_000, len(actualData), "s3 data should match expected")

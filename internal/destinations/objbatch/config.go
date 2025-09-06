@@ -1,4 +1,4 @@
-package blobjects
+package objbatch
 
 import (
 	"errors"

@@ -1,4 +1,4 @@
-package blobjects
+package objbatch
 
 import (
 	"bytes"
@@ -15,27 +15,27 @@ import (
 	"github.com/segmentio/ksuid"
 )
 
-type Option func(*S3)
+type Option func(*ObjectStorage)
 
 func WithBatchSize(batchSize int) Option {
-	return func(s *S3) {
+	return func(s *ObjectStorage) {
 		s.batchSize = batchSize
 	}
 }
 
 func WithFlushFrequency(flushFrequency time.Duration) Option {
-	return func(s *S3) {
+	return func(s *ObjectStorage) {
 		s.flushFrequency = flushFrequency
 	}
 }
 
 func WithBlobLike(blobLike objstore.BlobLike) Option {
-	return func(s *S3) {
+	return func(s *ObjectStorage) {
 		s.blobLike = blobLike
 	}
 }
 
-type S3 struct {
+type ObjectStorage struct {
 	batcher *batch.Destination[types.Event]
 
 	pathPrefix string
@@ -47,8 +47,8 @@ type S3 struct {
 	objStore       *objstore.ObjStorageManager
 }
 
-func New(opts ...Option) *S3 {
-	ret := &S3{}
+func New(opts ...Option) *ObjectStorage {
+	ret := &ObjectStorage{}
 	for _, o := range opts {
 		o(ret)
 	}
@@ -67,7 +67,7 @@ func New(opts ...Option) *S3 {
 	return ret
 }
 
-func (s *S3) Run(ctx context.Context) error {
+func (s *ObjectStorage) Run(ctx context.Context) error {
 	if s.blobLike == nil {
 		return errors.New("no blob destination initialized")
 	}
@@ -80,11 +80,11 @@ func (s *S3) Run(ctx context.Context) error {
 	return s.batcher.Run(ctx)
 }
 
-func (s *S3) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Event]) error {
+func (s *ObjectStorage) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Event]) error {
 	return s.batcher.Send(ctx, ack, msgs...)
 }
 
-func (s *S3) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
+func (s *ObjectStorage) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
 	var buf bytes.Buffer
 	gzipBuffer := gzip.NewWriter(&buf)
 
