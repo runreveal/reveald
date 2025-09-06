@@ -243,11 +243,17 @@ func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 }
 
 type JournaldConfig struct {
+	// MaxLineLenKB is the maximum line length in kilobytes for the scanner buffer (defaults to 64KB if not specified)
+	MaxLineLenKB int `json:"maxLineLenKB"`
 }
 
 func (c *JournaldConfig) Configure() (kawa.Source[types.Event], error) {
 	slog.Info("configuring journald")
-	return journald.New(), nil
+	maxLineLenKB := 64 // default
+	if c.MaxLineLenKB > 0 {
+		maxLineLenKB = c.MaxLineLenKB
+	}
+	return journald.New(journald.WithMaxLineLenKB(maxLineLenKB)), nil
 }
 
 type MQTTDestConfig struct {
