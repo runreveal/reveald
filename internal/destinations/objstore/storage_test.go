@@ -16,7 +16,9 @@ func TestS3DataStoreStream(t *testing.T) {
 	t.Skip("local test only, requires aws credentials")
 	ctx := context.Background()
 
-	s3, err := NewS3(S3Config{})
+	s3, err := NewS3(S3Config{
+		Bucket: "pfpwfpwwpfwp",
+	})
 	assert.NoError(t, err, "should not error on s3 init")
 
 	objmgr, err := New(s3)
@@ -46,12 +48,12 @@ func TestS3DataStoreStream(t *testing.T) {
 		assert.NoError(t, err, "should not error on close")
 	}()
 
-	err = objmgr.Store(ctx, "pfpwfpwwpfwp", key, pr)
+	err = objmgr.Store(ctx, key, pr)
 	assert.NoError(t, err, "should not error on store")
 
 	t.Log("finished uploading.")
 
-	actualData, err := objmgr.ReadAll(ctx, "pfpwfpwwpfwp", key)
+	actualData, err := objmgr.ReadAll(ctx, key)
 
 	assert.NoError(t, err, "should not error on fetch")
 	assert.Equal(t, 25_000_000, len(actualData), "s3 data should match expected")

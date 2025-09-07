@@ -14,12 +14,16 @@ import (
 )
 
 type R2 struct {
-	s3svc *s3.Client
+	s3svc      *s3.Client
+	bucket     string
+	pathPrefix string
 }
 
 type R2Config struct {
 	Account         string `json:"account"`
 	Jurisdiction    string `json:"jurisdiction"`
+	Bucket          string `json:"bucket,omitempty"`
+	PathPrefix      string `json:"pathPrefix,omitempty"`
 	AccessKeyID     string `json:"accessKeyID"`
 	SecretAccessKey string `json:"secretAccessKey"`
 	Type            string `json:"type"`
@@ -45,13 +49,24 @@ func NewR2(cfg R2Config) (*R2, error) {
 		o.BaseEndpoint = aws.String(r2AccessURL)
 	})
 
-	return &R2{s3svc: client}, nil
+	return &R2{
+		s3svc:      client,
+		bucket:     cfg.Bucket,
+		pathPrefix: cfg.PathPrefix,
+	}, nil
+}
+
+func (s *R2) buildKey(key string) string {
+	if s.pathPrefix == "" {
+		return key
+	}
+	return s.pathPrefix + "/" + key
 }
 
 func (s *R2) GetObject(ctx context.Context, in GetObjectInput) (io.ReadCloser, error) {
 	obj, err := s.s3svc.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(in.Bucket),
-		Key:    aws.String(in.Key),
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(s.buildKey(in.Key)),
 	})
 
 	return obj.Body, err
@@ -66,8 +81,8 @@ func (s *R2) PutObject(ctx context.Context, in PutObjectInput) error {
 	})
 
 	_, err := uploader.Upload(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(in.Bucket),
-		Key:    aws.String(in.Key),
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(s.buildKey(in.Key)),
 		Body:   in.Data,
 	})
 	return err
@@ -79,8 +94,8 @@ func (s *R2) GetSignedURL(ctx context.Context, in SignedURLInput) (string, error
 
 	// Create the presigned request
 	resp, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(in.Bucket),
-		Key:    aws.String(in.Key),
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(s.buildKey(in.Key)),
 	}, s3.WithPresignExpires(15*time.Minute))
 	if err != nil {
 		return "", fmt.Errorf("failed to presign URL: %w", err)

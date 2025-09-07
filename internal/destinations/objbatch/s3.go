@@ -38,9 +38,6 @@ func WithBlobLike(blobLike objstore.BlobLike) Option {
 type ObjectStorage struct {
 	batcher *batch.Destination[types.Event]
 
-	pathPrefix string
-	bucketName string
-
 	batchSize      int
 	flushFrequency time.Duration
 	blobLike       objstore.BlobLike
@@ -103,12 +100,11 @@ func (s *ObjectStorage) Flush(ctx context.Context, msgs []kawa.Message[types.Eve
 		return err
 	}
 
-	key := fmt.Sprintf("%s/%s/%s_%d.gz",
-		s.pathPrefix,
+	key := fmt.Sprintf("%s/%s_%d.gz",
 		time.Now().UTC().Format("2006/01/02/15"),
 		ksuid.New().String(),
 		time.Now().Unix(),
 	)
 
-	return s.objStore.Store(ctx, s.bucketName, key, bytes.NewReader(buf.Bytes()))
+	return s.objStore.Store(ctx, key, bytes.NewReader(buf.Bytes()))
 }
