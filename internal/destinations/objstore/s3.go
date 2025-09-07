@@ -14,13 +14,16 @@ import (
 )
 
 type S3 struct {
-	s3svc *s3.Client
+	s3svc      *s3.Client
+	bucket     string
+	pathPrefix string
 }
 
 type S3Config struct {
 	Region          string `json:"region"`
 	Type            string `json:"type"`
 	Bucket          string `json:"bucket,omitempty"`
+	PathPrefix      string `json:"pathPrefix,omitempty"`
 	AccessKeyID     string `json:"accessKeyID,omitempty"`
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 	CustomEndpoint  string `json:"customEndpoint,omitempty"`
@@ -57,14 +60,23 @@ func NewS3(cfg S3Config) (*S3, error) {
 	}
 
 	return &S3{
-		s3svc: client,
+		s3svc:      client,
+		bucket:     cfg.Bucket,
+		pathPrefix: cfg.PathPrefix,
 	}, nil
+}
+
+func (s *S3) buildKey(key string) string {
+	if s.pathPrefix == "" {
+		return key
+	}
+	return s.pathPrefix + "/" + key
 }
 
 func (s *S3) GetObject(ctx context.Context, in GetObjectInput) (io.ReadCloser, error) {
 	obj, err := s.s3svc.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(in.Bucket),
-		Key:    aws.String(in.Key),
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(s.buildKey(in.Key)),
 	})
 
 	return obj.Body, err
@@ -79,8 +91,8 @@ func (s *S3) PutObject(ctx context.Context, in PutObjectInput) error {
 	})
 
 	_, err := uploader.Upload(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(in.Bucket),
-		Key:    aws.String(in.Key),
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(s.buildKey(in.Key)),
 		Body:   in.Data,
 	})
 	return err
@@ -92,8 +104,8 @@ func (s *S3) GetSignedURL(ctx context.Context, in SignedURLInput) (string, error
 
 	// Create the presigned request
 	req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(in.Bucket),
-		Key:    aws.String(in.Key),
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(s.buildKey(in.Key)),
 	}, s3.WithPresignExpires(15*time.Minute))
 	if err != nil {
 		return "", fmt.Errorf("failed to presign URL: %w", err)
