@@ -7,11 +7,10 @@ import (
 
 func TestUnescapeMessage(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		unescapeJSON   bool
-		expectModified bool
-		checkMessage   func(t *testing.T, result map[string]any)
+		name         string
+		input        string
+		unescapeJSON bool
+		expected     string
 	}{
 		{
 			name: "simple escaped JSON object",
@@ -20,20 +19,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: true,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].(map[string]any)
-				if !ok {
-					t.Fatalf("MESSAGE should be an object, got %T", result["MESSAGE"])
-				}
-				if msg["key"] != "value" {
-					t.Errorf("expected key=value, got %v", msg["key"])
-				}
-				if msg["number"] != float64(123) {
-					t.Errorf("expected number=123, got %v", msg["number"])
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": {"key":"value","number":123},
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "nested escaped JSON",
@@ -42,18 +33,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: true,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].(map[string]any)
-				if !ok {
-					t.Fatalf("MESSAGE should be an object, got %T", result["MESSAGE"])
-				}
-				// The outer level is unescaped, inner stays as escaped string
-				if _, ok := msg["outer"].(string); !ok {
-					t.Errorf("expected outer to be a string, got %T", msg["outer"])
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": {"outer":"{\"inner\":\"value\"}"},
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "escaped JSON array",
@@ -62,20 +47,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: true,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].([]any)
-				if !ok {
-					t.Fatalf("MESSAGE should be an array, got %T", result["MESSAGE"])
-				}
-				if len(msg) != 3 {
-					t.Errorf("expected 3 items, got %d", len(msg))
-				}
-				if msg[0] != "item1" {
-					t.Errorf("expected item1, got %v", msg[0])
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": ["item1","item2",123],
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "plain text message",
@@ -84,17 +61,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: false,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].(string)
-				if !ok {
-					t.Fatalf("MESSAGE should be a string, got %T", result["MESSAGE"])
-				}
-				if msg != "This is just a plain text message" {
-					t.Errorf("message content changed unexpectedly")
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": "This is just a plain text message",
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "invalid JSON in MESSAGE",
@@ -103,17 +75,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: false,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].(string)
-				if !ok {
-					t.Fatalf("MESSAGE should remain a string, got %T", result["MESSAGE"])
-				}
-				if msg != "{invalid json" {
-					t.Errorf("message content changed unexpectedly")
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": "{invalid json",
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "already unescaped JSON object",
@@ -122,17 +89,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: false,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].(map[string]any)
-				if !ok {
-					t.Fatalf("MESSAGE should be an object, got %T", result["MESSAGE"])
-				}
-				if msg["already"] != "unescaped" {
-					t.Errorf("expected already=unescaped, got %v", msg["already"])
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": {"already":"unescaped","works":true},
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "empty MESSAGE",
@@ -141,13 +103,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: false,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				if msg, ok := result["MESSAGE"].(string); !ok || msg != "" {
-					t.Errorf("MESSAGE should be empty string, got %v", result["MESSAGE"])
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": "",
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "MESSAGE with special characters",
@@ -156,17 +117,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   true,
-			expectModified: true,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].(map[string]any)
-				if !ok {
-					t.Fatalf("MESSAGE should be an object, got %T", result["MESSAGE"])
-				}
-				if msg["unicode"] != "Hello" {
-					t.Errorf("expected unicode=Hello, got %v", msg["unicode"])
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": {"unicode":"Hello"},
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "feature disabled",
@@ -175,17 +131,12 @@ func TestUnescapeMessage(t *testing.T) {
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
-			unescapeJSON:   false,
-			expectModified: false,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				msg, ok := result["MESSAGE"].(string)
-				if !ok {
-					t.Fatalf("MESSAGE should remain a string when feature is disabled, got %T", result["MESSAGE"])
-				}
-				if msg != `{"key":"value"}` {
-					t.Errorf("message content changed when feature was disabled")
-				}
-			},
+			unescapeJSON: false,
+			expected: `{
+				"MESSAGE": "{\"key\":\"value\"}",
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123"
+			}`,
 		},
 		{
 			name: "preserves other journald fields",
@@ -197,25 +148,15 @@ func TestUnescapeMessage(t *testing.T) {
 				"SYSLOG_IDENTIFIER": "test",
 				"CUSTOM_FIELD": "should remain"
 			}`,
-			unescapeJSON:   true,
-			expectModified: true,
-			checkMessage: func(t *testing.T, result map[string]any) {
-				if result["__REALTIME_TIMESTAMP"] != "1234567890" {
-					t.Errorf("timestamp was modified")
-				}
-				if result["__CURSOR"] != "cursor123" {
-					t.Errorf("cursor was modified")
-				}
-				if result["_HOSTNAME"] != "testhost" {
-					t.Errorf("hostname was modified")
-				}
-				if result["SYSLOG_IDENTIFIER"] != "test" {
-					t.Errorf("syslog identifier was modified")
-				}
-				if result["CUSTOM_FIELD"] != "should remain" {
-					t.Errorf("custom field was modified")
-				}
-			},
+			unescapeJSON: true,
+			expected: `{
+				"MESSAGE": {"key":"value"},
+				"__REALTIME_TIMESTAMP": "1234567890",
+				"__CURSOR": "cursor123",
+				"_HOSTNAME": "testhost",
+				"SYSLOG_IDENTIFIER": "test",
+				"CUSTOM_FIELD": "should remain"
+			}`,
 		},
 	}
 
@@ -252,19 +193,31 @@ func TestUnescapeMessage(t *testing.T) {
 				resultBytes = inputBytes
 			}
 
-			// Check if bytes were modified as expected
-			wasModified := string(inputBytes) != string(resultBytes)
-			if wasModified != tt.expectModified {
-				t.Errorf("expected modified=%v, got modified=%v", tt.expectModified, wasModified)
+			// Parse expected JSON
+			var expected map[string]any
+			if err := json.Unmarshal([]byte(tt.expected), &expected); err != nil {
+				t.Fatalf("failed to parse expected JSON: %v", err)
 			}
 
-			// Parse result and run custom checks
+			// Parse result JSON
 			var result map[string]any
 			if err := json.Unmarshal(resultBytes, &result); err != nil {
 				t.Fatalf("failed to parse result: %v", err)
 			}
 
-			tt.checkMessage(t, result)
+			// Compare as JSON (marshal both to canonical form)
+			expectedBytes, err := json.Marshal(expected)
+			if err != nil {
+				t.Fatalf("failed to marshal expected: %v", err)
+			}
+			resultCanonical, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("failed to marshal result: %v", err)
+			}
+
+			if string(expectedBytes) != string(resultCanonical) {
+				t.Errorf("JSON mismatch:\nexpected: %s\ngot:      %s", string(expectedBytes), string(resultCanonical))
+			}
 		})
 	}
 }
