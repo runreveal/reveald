@@ -249,6 +249,8 @@ func (c *S3Config) Configure() (kawa.Destination[types.Event], error) {
 type JournaldConfig struct {
 	// MaxLineLenKB is the maximum line length in kilobytes for the scanner buffer (defaults to 64KB if not specified)
 	MaxLineLenKB int `json:"maxLineLenKB"`
+	// UnescapeMessageJSON when true, will attempt to unescape MESSAGE field if it contains escaped JSON
+	UnescapeMessageJSON bool `json:"unescapeMessageJSON"`
 }
 
 func (c *JournaldConfig) Configure() (kawa.Source[types.Event], error) {
@@ -257,7 +259,10 @@ func (c *JournaldConfig) Configure() (kawa.Source[types.Event], error) {
 	if c.MaxLineLenKB > 0 {
 		maxLineLenKB = c.MaxLineLenKB
 	}
-	return journald.New(journald.WithMaxLineLenKB(maxLineLenKB)), nil
+	return journald.New(
+		journald.WithMaxLineLenKB(maxLineLenKB),
+		journald.WithUnescapeMessageJSON(c.UnescapeMessageJSON),
+	), nil
 }
 
 type MQTTDestConfig struct {
