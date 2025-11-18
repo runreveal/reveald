@@ -307,6 +307,9 @@ func (s *Journald) unescapeMessage(originalBytes []byte, message journalMsg) []b
 	// Replace MESSAGE field with the parsed JSON object
 	journaldData["MESSAGE"] = parsedMessage
 
+	// Add indicator that MESSAGE was successfully parsed as JSON
+	journaldData["_MESSAGE_IS_JSON"] = true
+
 	// Marshal back to JSON
 	modifiedBytes, err := json.Marshal(journaldData)
 	if err != nil {
