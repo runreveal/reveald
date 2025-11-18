@@ -22,6 +22,7 @@ func TestUnescapeMessage(t *testing.T) {
 			unescapeJSON: true,
 			expected: `{
 				"MESSAGE": {"key":"value","number":123},
+				"_MESSAGE_IS_JSON": true,
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
@@ -36,6 +37,7 @@ func TestUnescapeMessage(t *testing.T) {
 			unescapeJSON: true,
 			expected: `{
 				"MESSAGE": {"outer":"{\"inner\":\"value\"}"},
+				"_MESSAGE_IS_JSON": true,
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
@@ -50,6 +52,7 @@ func TestUnescapeMessage(t *testing.T) {
 			unescapeJSON: true,
 			expected: `{
 				"MESSAGE": ["item1","item2",123],
+				"_MESSAGE_IS_JSON": true,
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
@@ -120,6 +123,7 @@ func TestUnescapeMessage(t *testing.T) {
 			unescapeJSON: true,
 			expected: `{
 				"MESSAGE": {"unicode":"Hello"},
+				"_MESSAGE_IS_JSON": true,
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123"
 			}`,
@@ -151,6 +155,7 @@ func TestUnescapeMessage(t *testing.T) {
 			unescapeJSON: true,
 			expected: `{
 				"MESSAGE": {"key":"value"},
+				"_MESSAGE_IS_JSON": true,
 				"__REALTIME_TIMESTAMP": "1234567890",
 				"__CURSOR": "cursor123",
 				"_HOSTNAME": "testhost",
