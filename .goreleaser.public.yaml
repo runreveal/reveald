@@ -14,10 +14,17 @@ builds:
     binary: reveald
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
     goos:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
 
 archives:
   - format: tar.gz
