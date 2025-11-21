@@ -13,7 +13,10 @@ permissions:
 
 jobs:
   public:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
 
     - uses: actions/checkout@v4
@@ -27,6 +30,7 @@ jobs:
         go-version-file: go.mod
 
     - uses: goreleaser/goreleaser-action@v6
+      if: matrix.os == 'ubuntu-latest'
       with:
         # either 'goreleaser' (default) or 'goreleaser-pro':
         distribution: goreleaser-pro
@@ -36,3 +40,12 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GO_RELEASER }}
         FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
         GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+
+    - name: Build Windows binary
+      if: matrix.os == 'windows-latest'
+      run: |
+        go build -trimpath -ldflags="-s -w" -o reveald.exe ./cmd/reveald
+      env:
+        CGO_ENABLED: 0
+        GOOS: windows
+        GOARCH: amd64
