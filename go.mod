@@ -4,6 +4,14 @@ go 1.24.0
 
 toolchain go1.24.4
 
+exclude go.opentelemetry.io/auto/sdk v1.0.0
+
+exclude go.opentelemetry.io/auto/sdk v1.1.0
+
+exclude go.opentelemetry.io/auto/sdk v1.2.0
+
+exclude go.opentelemetry.io/auto/sdk v1.2.1
+
 require (
 	github.com/aws/aws-sdk-go-v2 v1.37.0
 	github.com/aws/aws-sdk-go-v2/config v1.30.0
@@ -16,7 +24,7 @@ require (
 	github.com/runreveal/lib/loader v0.0.0-20250907195919-d96a7be32404
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/cobra v1.7.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/sys v0.36.0
 	gopkg.in/mcuadros/go-syslog.v2 v2.3.0
 )
@@ -52,10 +60,10 @@ require (
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/otel v1.37.0 // indirect
-	go.opentelemetry.io/otel/metric v1.37.0 // indirect
-	go.opentelemetry.io/otel/trace v1.37.0 // indirect
+	go.opentelemetry.io/auto/sdk v0.2.0-alpha // indirect
+	go.opentelemetry.io/otel v1.38.0 // indirect
+	go.opentelemetry.io/otel/metric v1.38.0 // indirect
+	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
