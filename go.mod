@@ -25,6 +25,7 @@ require (
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.11.1
+	github.com/tidwall/sjson v1.2.5
 	golang.org/x/sys v0.36.0
 	gopkg.in/mcuadros/go-syslog.v2 v2.3.0
 )
