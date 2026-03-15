@@ -225,6 +225,7 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 	var callback = func(startOffset int) func(ctx context.Context, b []byte, fname string, pos int) error {
 		return func(ctx context.Context, b []byte, fname string, pos int) error {
 			event := kawa.Message[types.Event]{
+				Key: fname,
 				Value: types.Event{
 					// TODO: how do we parse eventTime from the file?
 					EventTime:  time.Now(),
