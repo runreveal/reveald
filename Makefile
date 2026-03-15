@@ -8,6 +8,10 @@ GO ?= $(shell which go)
 
 export GOEXPERIMENT=nocoverageredesign
 
+.PHONY: build
+build:
+	$(GO) build ./...
+
 .PHONY: test
 test:
 	$(GO) test -vet=off -tags='$(GOTAGS)' $(GOTESTFLAGS) -coverpkg="./..." -coverprofile=.coverprofile ./...

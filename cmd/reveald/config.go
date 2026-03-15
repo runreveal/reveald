@@ -20,6 +20,7 @@ import (
 	"github.com/runreveal/reveald/internal/destinations/runreveal"
 	s3kawad "github.com/runreveal/reveald/internal/destinations/s3"
 	"github.com/runreveal/reveald/internal/sources/command"
+	"github.com/runreveal/reveald/internal/sources/cri"
 	"github.com/runreveal/reveald/internal/sources/file"
 	"github.com/runreveal/reveald/internal/sources/journald"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
@@ -41,6 +42,9 @@ func init() {
 	})
 	loader.Register("file", func() loader.Builder[kawa.Source[types.Event]] {
 		return &FileConfig{}
+	})
+	loader.Register("cri", func() loader.Builder[kawa.Source[types.Event]] {
+		return &CRIConfig{}
 	})
 	loader.Register("command", func() loader.Builder[kawa.Source[types.Event]] {
 		return &CmdConfig{}
@@ -93,6 +97,8 @@ type FileConfig struct {
 	Path string `json:"path"`
 	// Extension indicates which files to consume
 	Extension string `json:"extension"`
+	// Recursive enables watching subdirectories
+	Recursive bool `json:"recursive"`
 }
 
 func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
@@ -100,9 +106,28 @@ func (c *FileConfig) Configure() (kawa.Source[types.Event], error) {
 	return file.NewWatcher(
 		file.WithExtension(c.Extension),
 		file.WithPath(c.Path),
+		file.WithRecursive(c.Recursive),
 		file.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "watcher-hwm.json")),
 		file.WithCommitInterval(5*time.Second),
 	), nil
+}
+
+type CRIConfig struct {
+	Path      string `json:"path"`
+	Extension string `json:"extension"`
+	Recursive bool   `json:"recursive"`
+}
+
+func (c *CRIConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info(fmt.Sprintf("configuring cri source for path: %s", c.Path))
+	w := file.NewWatcher(
+		file.WithExtension(c.Extension),
+		file.WithPath(c.Path),
+		file.WithRecursive(c.Recursive),
+		file.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "cri-hwm.json")),
+		file.WithCommitInterval(5*time.Second),
+	)
+	return cri.New(w), nil
 }
 
 type CmdConfig struct {

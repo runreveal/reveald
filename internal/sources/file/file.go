@@ -37,6 +37,12 @@ func WithCommitInterval(d time.Duration) Option {
 	}
 }
 
+func WithRecursive(recursive bool) Option {
+	return func(w *Watcher) {
+		w.recursive = recursive
+	}
+}
+
 func WithHighWatermarkFile(fname string) Option {
 	return func(w *Watcher) {
 		w.highWatermarkFile = fname
@@ -57,6 +63,7 @@ type filePos struct {
 type Watcher struct {
 	path      string
 	extension string
+	recursive bool
 	msgC      chan msgErr[types.Event]
 
 	mapLock           sync.RWMutex
@@ -218,6 +225,7 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 	var callback = func(startOffset int) func(ctx context.Context, b []byte, fname string, pos int) error {
 		return func(ctx context.Context, b []byte, fname string, pos int) error {
 			event := kawa.Message[types.Event]{
+				Key: fname,
 				Value: types.Event{
 					// TODO: how do we parse eventTime from the file?
 					EventTime:  time.Now(),
@@ -245,22 +253,44 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 	firstRun := true
 
 	for {
-		// list the files in the directory given by s.path
-		files, err := os.ReadDir(s.path)
-		if err != nil {
-			return fmt.Errorf("watcher: %w", err)
+		// list matching files
+		var matchedFiles []string
+		if s.recursive {
+			err := filepath.WalkDir(s.path, func(path string, d os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					return nil
+				}
+				if s.extension != "" && !strings.HasSuffix(path, s.extension) {
+					return nil
+				}
+				matchedFiles = append(matchedFiles, path)
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("watcher: %w", err)
+			}
+		} else {
+			files, err := os.ReadDir(s.path)
+			if err != nil {
+				return fmt.Errorf("watcher: %w", err)
+			}
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+				fname := filepath.Join(s.path, file.Name())
+				if s.extension != "" && !strings.HasSuffix(fname, s.extension) {
+					slog.Debug(fmt.Sprintf("skipping file without given extension (%s): %s", s.extension, fname))
+					continue
+				}
+				matchedFiles = append(matchedFiles, fname)
+			}
 		}
 
-		for _, file := range files {
-			if file.IsDir() {
-				continue
-			}
-			// resolve the full path of the file
-			fname := filepath.Join(s.path, file.Name())
-			if s.extension != "" && !strings.HasSuffix(fname, s.extension) {
-				slog.Debug(fmt.Sprintf("skipping file without given extension (%s): %s", s.extension, fname))
-				continue
-			}
+		for _, fname := range matchedFiles {
 			s.mapLock.Lock()
 			shouldOpen := false
 
