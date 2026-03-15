@@ -101,9 +101,9 @@ func TestExtractJSON(t *testing.T) {
 
 func TestContainerFromPath(t *testing.T) {
 	tests := []struct {
-		name  string
-		path  string
-		want  string
+		name string
+		path string
+		want string
 	}{
 		{
 			name: "dns-logger container",
