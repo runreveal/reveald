@@ -1,57 +1,187 @@
-name: release
+name: Release
 
 on:
-  push:
-    # run only against tags
-    tags:
-      - '*'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm release (ignored when ref is provided)'
+        required: false
+        default: "no"
+      ref:
+        description: "Branch or tag to build (skips versioning and GitHub release — just builds and pushes image)"
+        required: false
+        default: ""
+
+concurrency:
+  group: release-workflow
+  cancel-in-progress: false
 
 permissions:
   contents: write
-  # packages: write
-  # issues: write
+  packages: write
 
 jobs:
-  public:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+  # ── Stage 1: Determine version / ref to build ─────────────────────────
+  version:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.ref != '' || github.event.inputs.confirm == 'yes'
+    outputs:
+      tag: ${{ steps.version.outputs.next_version }}
+      is_release: ${{ steps.version.outputs.is_release }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Compute next version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.ref }}" ]; then
+            echo "next_version=${{ github.event.inputs.ref }}" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "Using provided ref: ${{ github.event.inputs.ref }}"
+            exit 0
+          fi
 
-    - run: git fetch --force --tags
+          echo "is_release=true" >> $GITHUB_OUTPUT
 
-    - uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
+          current_year=$(date +"%Y")
+          current_month=$(date +"%-m")
+          current_date="${current_year}.${current_month}"
 
-    - name: Install mingw-w64 for Windows cross-compilation
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-mingw-w64-x86-64
+          latest_tag=$(git tag -l "v[0-9][0-9][0-9][0-9].[0-9]*.[0-9]*" | sort -V | tail -1)
 
-    - uses: goreleaser/goreleaser-action@v6
-      if: matrix.os == 'ubuntu-latest'
-      with:
-        # either 'goreleaser' (default) or 'goreleaser-pro':
-        distribution: goreleaser-pro
-        version: "~> v2"
-        args: release --clean -f .goreleaser.public.yaml
-      env:
-        GITHUB_TOKEN: ${{ secrets.GO_RELEASER }}
-        FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
-        GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          if [ -z "$latest_tag" ]; then
+            next_version="v${current_date}.1"
+          else
+            tag_without_v=${latest_tag#v}
+            tag_year_month=${tag_without_v%.*}
+            tag_patch=${tag_without_v##*.}
 
-    - name: Build Windows binary
-      if: matrix.os == 'windows-latest'
-      run: |
-        go build -trimpath -ldflags="-s -w" -o reveald.exe ./cmd/reveald
-      env:
-        CGO_ENABLED: 1
-        GOOS: windows
-        GOARCH: amd64
+            if [ "$tag_year_month" = "$current_date" ]; then
+              next_patch=$((tag_patch + 1))
+              next_version="v${current_date}.${next_patch}"
+            else
+              next_version="v${current_date}.1"
+            fi
+          fi
+
+          echo "next_version=$next_version" >> $GITHUB_OUTPUT
+          echo "Next version: $next_version"
+
+      - name: Verify tag does not exist
+        if: steps.version.outputs.is_release == 'true'
+        run: |
+          tag="${{ steps.version.outputs.next_version }}"
+          if git tag -l | grep -q "^${tag}$"; then
+            echo "ERROR: Tag $tag already exists"
+            exit 1
+          fi
+
+      - name: Create and push tag
+        if: steps.version.outputs.is_release == 'true'
+        run: |
+          tag="${{ steps.version.outputs.next_version }}"
+          git tag "$tag"
+          git push origin "$tag"
+
+  # ── Stage 2: Test + lint (must pass before publishing) ────────────────
+  test:
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        run: make fmtcheck
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.8
+
+  # ── Stage 3: Build and push container image ────────────────────────────
+  push-image:
+    name: Push container image
+    runs-on: ubuntu-latest
+    needs: [version, test, lint]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/runreveal/reveald
+          tags: |
+            type=raw,value=${{ needs.version.outputs.tag }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.is_release == 'true' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.version.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Stage 4: Publish CLI binaries via goreleaser (releases only) ───────
+  release-cli:
+    name: Release CLI binaries
+    runs-on: ubuntu-latest
+    needs: [version, test, lint]
+    if: needs.version.outputs.is_release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.version.outputs.tag }}
+
+      - run: git fetch --force --tags
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --config .goreleaser.public.yaml --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}

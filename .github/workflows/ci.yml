@@ -1,42 +1,50 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
-name: reveald
+name: CI
 
 on:
   push:
-    branches: [ main ]
-    tags:
-      - '*'
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        run: make fmtcheck
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.8
 
   build:
-    runs-on:
-      labels: OSS-Runner
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
-        cache: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
-    # - name: Start containers
-    #   run: docker-compose -f "docker-compose.yml" up -d
-
-    - name: Test
-      run: make test
-
-    - name: Fmtcheck
-      run: make fmtcheck
-
-    - name: Lint
-      run: make lint
-
-    # - name: Stop containers
-    #   run: docker-compose -f "docker-compose.yml" down -v
-    #   if: always()
+      - name: Build
+        run: make build
