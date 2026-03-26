@@ -145,6 +145,14 @@ func (s *Scanner) Scan() bool {
 		return false
 	}
 	s.scanCalled = true
+	// If we previously hit EOF but still have data in the buffer (e.g. an
+	// incomplete line waiting for more data), clear the EOF so the split
+	// function is called with atEOF=false and we attempt a fresh read.
+	// This enables tailing: once the writer appends more data the next Read
+	// will pick it up and complete the buffered partial line.
+	if errors.Is(s.err, io.EOF) && s.end > s.start {
+		s.err = nil
+	}
 	// Loop until we have a token.
 	for {
 		// See if we can get a token with what we already have.
@@ -220,6 +228,7 @@ func (s *Scanner) Scan() bool {
 		// Finally we can read some input. Make sure we don't get stuck with
 		// a misbehaving Reader. Officially we don't need to do this, but let's
 		// be extra careful: Scanner is for safe, simple jobs.
+		readProgress := false
 		for loop := 0; ; {
 			n, err := s.r.Read(s.buf[s.end:len(s.buf)])
 			if n < 0 || len(s.buf)-s.end < n {
@@ -227,6 +236,9 @@ func (s *Scanner) Scan() bool {
 				break
 			}
 			s.end += n
+			if n > 0 {
+				readProgress = true
+			}
 			if err != nil {
 				s.setErr(err)
 				break
@@ -240,6 +252,15 @@ func (s *Scanner) Scan() bool {
 				s.setErr(io.ErrNoProgress)
 				break
 			}
+		}
+		// If we're at EOF and read no new data, return false to let the
+		// caller backoff and retry (e.g. sleep before the next Scan call).
+		// The buffer is preserved so any incomplete token survives across
+		// retries and will be completed once more data is appended to the
+		// file. We intentionally do NOT set s.done so Scan can be called
+		// again.
+		if !readProgress && errors.Is(s.err, io.EOF) {
+			return false
 		}
 	}
 }
@@ -355,8 +376,9 @@ func dropCR(data []byte) []byte {
 // text, stripped of any trailing end-of-line marker. The returned line may
 // be empty. The end-of-line marker is one optional carriage return followed
 // by one mandatory newline. In regular expression notation, it is `\r?\n`.
-// The last non-empty line of input will be returned even if it has no
-// newline.
+// Unlike the standard library version, a final non-terminated line at EOF is
+// NOT returned — it is kept in the buffer to be completed on the next read.
+// This prevents emitting partial lines when the writer flushes mid-line.
 func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
@@ -365,9 +387,12 @@ func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		// We have a full newline-terminated line.
 		return i + 1, dropCR(data[0:i]), nil
 	}
-	// If we're at EOF, we have a final, non-terminated line. Return it.
+	// If we're at EOF with a non-terminated line, don't return it — it may
+	// be incomplete due to a partial buffer flush from the writer (e.g. a
+	// logger flushing every 4096 bytes). Keep the data in the scanner's
+	// buffer so it can be completed on the next read when more data arrives.
 	if atEOF {
-		return len(data), dropCR(data), nil
+		return 0, nil, nil
 	}
 	// Request more data.
 	return 0, nil, nil
