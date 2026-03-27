@@ -170,8 +170,9 @@ jobs:
           go-version-file: go.mod
       - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a  # v6
         with:
+          distribution: goreleaser-pro
           version: "~> v2"
           args: release --config .goreleaser.public.yaml --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GO_RELEASER }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
