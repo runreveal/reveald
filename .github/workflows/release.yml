@@ -152,6 +152,7 @@ jobs:
             VERSION=${{ needs.version.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
 
   # ── Stage 4: Publish CLI binaries via goreleaser (releases only) ───────
   release-cli:
