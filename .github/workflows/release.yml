@@ -178,3 +178,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GO_RELEASER }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
