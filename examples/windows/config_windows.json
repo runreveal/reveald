@@ -1,15 +1,37 @@
 {
-  "pprof": "localhost:6060",
-  "sources": [
-    {
+  "sources": {
+    "sysmon": {
+      "type": "eventlog",
+      "channel": "Microsoft-Windows-Sysmon/Operational",
+      "query": "*",
+    },
+    "security": {
       "type": "eventlog",
       "channel": "Security",
-      "query": "*", //"*[EventData[Data[@Name='LogonType']='2'] and System[(EventID=4624)]]"
+      "query": "*",
     },
-  ],
-  "destinations": [
-    {
-      "type": "printer",
+    "system": {
+      "type": "eventlog",
+      "channel": "System",
+      "query": "*",
     },
-  ],
+    "powershell": {
+      "type": "eventlog",
+      "channel": "Microsoft-Windows-PowerShell/Operational",
+      "query": "*",
+    },
+    "powershell_classic": {
+      "type": "eventlog",
+      "channel": "Windows PowerShell",
+      "query": "*",
+    },
+  },
+  "destinations": {
+    "runreveal": {
+      "type": "runreveal",
+      "webhookURL": "{{YOUR_WEBHOOK_URL}}",
+      "batchSize": 100,
+      "flushFreq": "10s",
+    },
+  },
 }

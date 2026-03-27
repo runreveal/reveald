@@ -113,51 +113,52 @@ func NewRunCommand() *cobra.Command {
 				return err
 			}
 
-			w := await.New(await.WithSignals, await.WithStopTimeout(30*time.Second))
-
-			// if config.Monitoring.Addr != "" {
-			// 	mux := http.NewServeMux()
-			// 	if config.Monitoring.PProf.Path != "" {
-			// 		prefix := config.Monitoring.PProf.Path
-			// 		http.HandleFunc(prefix, pprof.Index)
-			// 		http.HandleFunc(prefix+"cmdline", pprof.Cmdline)
-			// 		http.HandleFunc(prefix+"profile", pprof.Profile)
-			// 		http.HandleFunc(prefix+"symbol", pprof.Symbol)
-			// 		http.HandleFunc(prefix+"trace", pprof.Trace)
-			// 	}
-			// 	if config.Monitoring.Metrics.Path != "" {
-			// 		mux.Handle(config.Monitoring.Metrics.Path, promhttp.Handler())
-			// 	}
-			// 	server := &http.Server{Addr: config.Monitoring.Addr, Handler: mux}
-			// 	w.AddNamed(await.ListenAndServe(server), "monitoring")
-			// }
-
 			slog.Info(fmt.Sprintf("config: %+v", config))
 
-			ctx := context.Background()
-			srcs := map[string]queue.Source{}
-			for k, v := range config.Sources {
-				src, err := v.Configure()
-				if err != nil {
-					return err
-				}
-				srcs[k] = queue.Source{Name: k, Source: src}
-			}
+			return runService("reveald", func(ctx context.Context) error {
+				w := await.New(await.WithSignals, await.WithStopTimeout(30*time.Second))
 
-			dsts := map[string]queue.Destination{}
-			for k, v := range config.Destinations {
-				dst, err := v.Configure()
-				if err != nil {
-					return err
-				}
-				dsts[k] = queue.Destination{Name: k, Destination: dst}
-			}
+				// if config.Monitoring.Addr != "" {
+				// 	mux := http.NewServeMux()
+				// 	if config.Monitoring.PProf.Path != "" {
+				// 		prefix := config.Monitoring.PProf.Path
+				// 		http.HandleFunc(prefix, pprof.Index)
+				// 		http.HandleFunc(prefix+"cmdline", pprof.Cmdline)
+				// 		http.HandleFunc(prefix+"profile", pprof.Profile)
+				// 		http.HandleFunc(prefix+"symbol", pprof.Symbol)
+				// 		http.HandleFunc(prefix+"trace", pprof.Trace)
+				// 	}
+				// 	if config.Monitoring.Metrics.Path != "" {
+				// 		mux.Handle(config.Monitoring.Metrics.Path, promhttp.Handler())
+				// 	}
+				// 	server := &http.Server{Addr: config.Monitoring.Addr, Handler: mux}
+				// 	w.AddNamed(await.ListenAndServe(server), "monitoring")
+				// }
 
-			q := queue.New(queue.WithSources(srcs), queue.WithDestinations(dsts))
-			w.AddNamed(q, "queue")
-			err = w.Run(ctx)
-			slog.Error(fmt.Sprintf("closing: %+v", err))
-			return err
+				srcs := map[string]queue.Source{}
+				for k, v := range config.Sources {
+					src, err := v.Configure()
+					if err != nil {
+						return err
+					}
+					srcs[k] = queue.Source{Name: k, Source: src}
+				}
+
+				dsts := map[string]queue.Destination{}
+				for k, v := range config.Destinations {
+					dst, err := v.Configure()
+					if err != nil {
+						return err
+					}
+					dsts[k] = queue.Destination{Name: k, Destination: dst}
+				}
+
+				q := queue.New(queue.WithSources(srcs), queue.WithDestinations(dsts))
+				w.AddNamed(q, "queue")
+				err := w.Run(ctx)
+				slog.Error(fmt.Sprintf("closing: %+v", err))
+				return err
+			})
 		},
 	}
 

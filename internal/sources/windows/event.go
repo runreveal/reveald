@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/runreveal/reveald/internal/types"
@@ -115,7 +116,16 @@ func (xe *xmlEvent) ToJSONEvent() *Event {
 		if d.Name != "" {
 			event.EventDataMap[d.Name] = d.Value
 		} else {
-			event.EventData = append(event.EventData, d.Value)
+			// Try to parse key=value pairs from unnamed Data elements.
+			// Some providers (e.g. PowerShell classic) emit data as
+			// tab/newline-delimited "Key=Value" strings.
+			if parsed := parseKeyValuePairs(d.Value); len(parsed) > 0 {
+				for k, v := range parsed {
+					event.EventDataMap[k] = v
+				}
+			} else {
+				event.EventData = append(event.EventData, d.Value)
+			}
 		}
 	}
 	event.UserData = xe.UserData
@@ -178,6 +188,33 @@ type Event struct {
 func newEvent() (el Event) {
 	el.EventDataMap = make(map[string]string)
 	return el
+}
+
+// parseKeyValuePairs attempts to parse a string containing key=value pairs
+// separated by newlines, tabs, or carriage returns (common in PowerShell
+// classic event logs). Returns nil if fewer than 2 pairs are found, so
+// that plain text data falls through to eventData as before.
+func parseKeyValuePairs(s string) map[string]string {
+	result := make(map[string]string)
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k != "" {
+			result[k] = v
+		}
+	}
+	if len(result) < 2 {
+		return nil
+	}
+	return result
 }
 
 func (evt *Event) ToGeneric() (*types.Event, error) {
