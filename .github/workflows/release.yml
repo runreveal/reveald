@@ -126,18 +126,21 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           ref: ${{ needs.version.outputs.tag }}
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
       - name: Login to ghcr.io
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to CF registry
+        run: echo "${{ secrets.CF_REGISTRY_PASSWORD }}" | docker login images.runreveal.com -u ${{ secrets.CF_REGISTRY_USERNAME }} --password-stdin
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051  # v5
         with:
-          images: ghcr.io/runreveal/reveald
+          images: |
+            ghcr.io/runreveal/reveald
+            images.runreveal.com/reveald
           tags: |
             type=raw,value=${{ needs.version.outputs.tag }}
             type=raw,value=latest,enable=${{ needs.version.outputs.is_release == 'true' }}
@@ -150,9 +153,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ needs.version.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: false
 
   # ── Stage 4: Publish CLI binaries via goreleaser (releases only) ───────
   release-cli:
