@@ -27,6 +27,7 @@ jobs:
     if: github.event.inputs.ref != '' || github.event.inputs.confirm == 'yes'
     outputs:
       tag: ${{ steps.version.outputs.next_version }}
+      ref: ${{ steps.version.outputs.ref }}
       is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -39,9 +40,12 @@ jobs:
           INPUT_REF: ${{ github.event.inputs.ref }}
         run: |
           if [ -n "$INPUT_REF" ]; then
-            echo "next_version=$INPUT_REF" >> $GITHUB_OUTPUT
+            # Sanitise ref for use as a Docker tag (replace / with -)
+            safe_tag=$(echo "$INPUT_REF" | sed 's|/|-|g')
+            echo "next_version=$safe_tag" >> $GITHUB_OUTPUT
+            echo "ref=$INPUT_REF" >> $GITHUB_OUTPUT
             echo "is_release=false" >> $GITHUB_OUTPUT
-            echo "Using provided ref: $INPUT_REF"
+            echo "Using provided ref: $INPUT_REF (tag: $safe_tag)"
             exit 0
           fi
 
@@ -69,6 +73,7 @@ jobs:
           fi
 
           echo "next_version=$next_version" >> $GITHUB_OUTPUT
+          echo "ref=$next_version" >> $GITHUB_OUTPUT
           echo "Next version: $next_version"
 
       - name: Verify tag does not exist
@@ -94,7 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
-          ref: ${{ needs.version.outputs.tag }}
+          ref: ${{ needs.version.outputs.ref }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
         with:
           go-version-file: go.mod
@@ -107,7 +112,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
-          ref: ${{ needs.version.outputs.tag }}
+          ref: ${{ needs.version.outputs.ref }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
         with:
           go-version-file: go.mod
@@ -125,7 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
-          ref: ${{ needs.version.outputs.tag }}
+          ref: ${{ needs.version.outputs.ref }}
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
       - name: Login to ghcr.io
@@ -170,7 +175,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.version.outputs.tag }}
+          ref: ${{ needs.version.outputs.ref }}
       - run: git fetch --force --tags
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
         with:
