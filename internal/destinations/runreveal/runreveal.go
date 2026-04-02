@@ -91,8 +91,8 @@ func (r *RunReveal) Run(ctx context.Context) error {
 	return r.batcher.Run(ctx)
 }
 
-func (r *RunReveal) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Event]) error {
-	return r.batcher.Send(ctx, ack, msgs...)
+func (r *RunReveal) Send(ctx context.Context, ack func(), msg kawa.Message[types.Event]) error {
+	return r.batcher.Send(ctx, ack, msg)
 }
 
 func (r *RunReveal) newReq() *requests.Builder {

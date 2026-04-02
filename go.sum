@@ -71,8 +71,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
 github.com/rogpeppe/go-internal v1.10.0/go.mod h1:UQnix2H7Ngw/k4C5ijL5+65zddjncjaFoBhdsK/akog=
-github.com/runreveal/kawa v0.2.2-0.20250409213345-1daf28245005 h1:Zf49xgnUpEkTRrI90oTgHnKZvmNRXygObAKcIl3S+5A=
-github.com/runreveal/kawa v0.2.2-0.20250409213345-1daf28245005/go.mod h1:CCLVlTR7O0eqpQGju6hmuSSMKFYdlM9Sdns1N2h1VW0=
+github.com/runreveal/kawa v0.2.4-0.20260402053122-a4207087fb00 h1:rh6KgIFZHgKPS+d+eJM5v7iJKvMgqxzr2a24CiJDrtQ=
+github.com/runreveal/kawa v0.2.4-0.20260402053122-a4207087fb00/go.mod h1:CCLVlTR7O0eqpQGju6hmuSSMKFYdlM9Sdns1N2h1VW0=
 github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c h1:rZt9vvUOA1CstxYueKfaAU7zcLx5PyMSECtJGscP8wo=
 github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c/go.mod h1:qnRPgJExa5ziREWvAhSDMMTBSxBk9wX4D2xZBUBldmw=
 github.com/runreveal/lib/loader v0.0.0-20250907195919-d96a7be32404 h1:gMleQ0wO45/Hrx0qRTZyH+Kbk+/v5tpCopxoEVBoi1I=
