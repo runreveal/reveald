@@ -77,8 +77,8 @@ func (s *ObjectStorage) Run(ctx context.Context) error {
 	return s.batcher.Run(ctx)
 }
 
-func (s *ObjectStorage) Send(ctx context.Context, ack func(), msgs ...kawa.Message[types.Event]) error {
-	return s.batcher.Send(ctx, ack, msgs...)
+func (s *ObjectStorage) Send(ctx context.Context, ack func(), msg kawa.Message[types.Event]) error {
+	return s.batcher.Send(ctx, ack, msg)
 }
 
 func (s *ObjectStorage) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {

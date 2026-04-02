@@ -24,12 +24,6 @@ func (p *MQTT) Run(ctx context.Context) error {
 	return p.wrapped.Run(ctx)
 }
 
-func (p *MQTT) Send(ctx context.Context, ack func(), msg ...kawa.Message[types.Event]) error {
-	for _, m := range msg {
-		err := p.wrapped.Send(ctx, ack, kawa.Message[[]byte]{Value: m.Value.RawLog})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (p *MQTT) Send(ctx context.Context, ack func(), msg kawa.Message[types.Event]) error {
+	return p.wrapped.Send(ctx, ack, kawa.Message[[]byte]{Value: msg.Value.RawLog})
 }
