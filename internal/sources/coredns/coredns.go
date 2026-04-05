@@ -124,17 +124,17 @@ func parseLogLine(line string) (*DNSQuery, error) {
 	return &DNSQuery{
 		ClientIP:   m[1],
 		ClientPort: clientPort,
-		QueryID:     queryID,
-		QueryType:   m[4],
-		QueryName:   m[5],
-		Protocol:    m[6],
-		QuerySize:   querySize,
-		DNSSEC:      m[8] == "true",
-		BufSize:     bufSize,
-		Rcode:       m[10],
-		Flags:       m[11],
-		RespSize:    respSize,
-		Duration:    m[13],
+		QueryID:    queryID,
+		QueryType:  m[4],
+		QueryName:  m[5],
+		Protocol:   m[6],
+		QuerySize:  querySize,
+		DNSSEC:     m[8] == "true",
+		BufSize:    bufSize,
+		Rcode:      m[10],
+		Flags:      m[11],
+		RespSize:   respSize,
+		Duration:   m[13],
 	}, nil
 }
 
