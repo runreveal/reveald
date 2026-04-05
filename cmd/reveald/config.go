@@ -66,6 +66,12 @@ func init() {
 	loader.Register("eventlog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &EventLogConfig{}
 	})
+	loader.Register("coredns", func() loader.Builder[kawa.Source[types.Event]] {
+		return &CoreDNSConfig{}
+	})
+	loader.Register("tetragon", func() loader.Builder[kawa.Source[types.Event]] {
+		return &TetragonConfig{}
+	})
 
 	// ---------------Destinations-------------------------
 	loader.Register("printer", func() loader.Builder[kawa.Destination[types.Event]] {
