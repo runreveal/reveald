@@ -26,7 +26,9 @@ import (
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/scanner"
+	"github.com/runreveal/reveald/internal/sources/coredns"
 	"github.com/runreveal/reveald/internal/sources/syslog"
+	"github.com/runreveal/reveald/internal/sources/tetragon"
 	"github.com/runreveal/reveald/internal/sources/windows"
 	"github.com/runreveal/reveald/internal/types"
 	// We could register and configure these in their own package
@@ -288,6 +290,38 @@ func (c *JournaldConfig) Configure() (kawa.Source[types.Event], error) {
 		journald.WithMaxLineLenKB(maxLineLenKB),
 		journald.WithUnescapeMessageJSON(c.UnescapeMessageJSON),
 	), nil
+}
+
+type CoreDNSConfig struct {
+	Path      string `json:"path"`
+	Extension string `json:"extension"`
+}
+
+func (c *CoreDNSConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info(fmt.Sprintf("configuring coredns source for path: %s", c.Path))
+	w := file.NewWatcher(
+		file.WithExtension(c.Extension),
+		file.WithPath(c.Path),
+		file.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "coredns-hwm.json")),
+		file.WithCommitInterval(5*time.Second),
+	)
+	return coredns.New(w), nil
+}
+
+type TetragonConfig struct {
+	Path      string `json:"path"`
+	Extension string `json:"extension"`
+}
+
+func (c *TetragonConfig) Configure() (kawa.Source[types.Event], error) {
+	slog.Info(fmt.Sprintf("configuring tetragon source for path: %s", c.Path))
+	w := file.NewWatcher(
+		file.WithExtension(c.Extension),
+		file.WithPath(c.Path),
+		file.WithHighWatermarkFile(filepath.Join(internal.ConfigDir(), "tetragon-hwm.json")),
+		file.WithCommitInterval(5*time.Second),
+	)
+	return tetragon.New(w), nil
 }
 
 type MQTTDestConfig struct {
