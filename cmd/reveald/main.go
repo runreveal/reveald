@@ -12,10 +12,10 @@ import (
 
 	"github.com/runreveal/kawa"
 	"github.com/runreveal/lib/await"
+	"github.com/runreveal/lib/cli"
 	"github.com/runreveal/lib/loader"
 	"github.com/runreveal/reveald/internal/queue"
 	"github.com/runreveal/reveald/internal/types"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -49,124 +49,85 @@ func init() {
 	slog.SetDefault(slogger)
 }
 
+// Globals holds flags and config sections shared across all commands.
+type Globals struct {
+	Config string `cli:"config,c" usage:"path to config file" default:"/etc/reveald/config.json"`
+
+	Sources      map[string]loader.Loader[kawa.Source[types.Event]]      `config:"sources"`
+	Destinations map[string]loader.Loader[kawa.Destination[types.Event]] `config:"destinations"`
+
+	sources      map[string]queue.Source
+	destinations map[string]queue.Destination
+}
+
+func (g *Globals) Configure() error {
+	g.sources = make(map[string]queue.Source, len(g.Sources))
+	for name, src := range g.Sources {
+		s, err := src.Configure()
+		if err != nil {
+			return fmt.Errorf("source %q: %w", name, err)
+		}
+		g.sources[name] = queue.Source{Name: name, Source: s}
+	}
+
+	g.destinations = make(map[string]queue.Destination, len(g.Destinations))
+	for name, dst := range g.Destinations {
+		d, err := dst.Configure()
+		if err != nil {
+			return fmt.Errorf("destination %q: %w", name, err)
+		}
+		g.destinations[name] = queue.Destination{Name: name, Destination: d}
+	}
+
+	return nil
+}
+
+func (g *Globals) Validate() error {
+	if len(g.sources) == 0 {
+		return fmt.Errorf("at least one source is required")
+	}
+	if len(g.destinations) == 0 {
+		return fmt.Errorf("at least one destination is required")
+	}
+	return nil
+}
+
+func (g *Globals) ExtraHelp() string {
+	return "\nAvailable source types:\n" +
+		"  scanner, file, cri, command, syslog, nginx_syslog, journald, mqtt, eventlog\n" +
+		"\nAvailable destination types:\n" +
+		"  printer, s3, s3b, runreveal, mqtt\n"
+}
+
+type RunCmd struct{}
+
+func (r *RunCmd) Run(ctx context.Context, args []string) error {
+	g := cli.GlobalsFromContext[Globals](ctx)
+
+	return runService("reveald", func(ctx context.Context) error {
+		w := await.New(await.WithSignals, await.WithStopTimeout(30*time.Second))
+		q := queue.New(queue.WithSources(g.sources), queue.WithDestinations(g.destinations))
+		w.AddNamed(q, "queue")
+		return w.Run(ctx)
+	})
+}
+
 func main() {
-	slog.Info(fmt.Sprintf("starting %s", path.Base(os.Args[0])), "version", version)
-	rootCmd := NewRootCommand()
-	kawaCmd := NewRunCommand()
-	rootCmd.AddCommand(kawaCmd)
+	slog.Info("starting", "program", path.Base(os.Args[0]), "version", version)
 
-	if err := rootCmd.Execute(); err != nil {
-		slog.Error(fmt.Sprintf("%+v", err))
-		os.Exit(1)
-	}
-}
-
-// Build the cobra command that handles our command line tool.
-func NewRootCommand() *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:   path.Base(os.Args[0]),
-		Short: `reveald is an all-in-one event ingestion daemon`,
-		Long: `reveald is an all-in-one event ingestion daemon.
-It is designed to be a single binary that can be deployed to a server and	
-configured to receive events from a variety of sources and send them to a 
-variety of destinations.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
-		},
-	}
-	return rootCmd
-}
-
-type MonConfig struct {
-	Addr  string `json:"addr"`
-	PProf struct {
-		Path string `json:"path"`
-	} `json:"pprof"`
-	Metrics struct {
-		Path string `json:"path"`
-	} `json:"metrics"`
-}
-
-type Config struct {
-	Sources      map[string]loader.Loader[kawa.Source[types.Event]]      `json:"sources"`
-	Destinations map[string]loader.Loader[kawa.Destination[types.Event]] `json:"destinations"`
-
-	Monitoring MonConfig `json:"monitoring"`
-}
-
-// Build the cobra command that handles our command line tool.
-func NewRunCommand() *cobra.Command {
-	// Use configuration defined outside the main package 🎉
-	var config Config
-	var configFile string
-
-	cmd := &cobra.Command{
-		Use:   "run",
-		Short: "run the all-in-one event ingestion daemon",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			bts, err := os.ReadFile(configFile)
-			if err != nil {
-				return err
-			}
-			err = loader.LoadConfig(bts, &config)
-			if err != nil {
-				return err
-			}
-
-			slog.Info(fmt.Sprintf("config: %+v", config))
-
-			return runService("reveald", func(ctx context.Context) error {
-				w := await.New(await.WithSignals, await.WithStopTimeout(30*time.Second))
-
-				// if config.Monitoring.Addr != "" {
-				// 	mux := http.NewServeMux()
-				// 	if config.Monitoring.PProf.Path != "" {
-				// 		prefix := config.Monitoring.PProf.Path
-				// 		http.HandleFunc(prefix, pprof.Index)
-				// 		http.HandleFunc(prefix+"cmdline", pprof.Cmdline)
-				// 		http.HandleFunc(prefix+"profile", pprof.Profile)
-				// 		http.HandleFunc(prefix+"symbol", pprof.Symbol)
-				// 		http.HandleFunc(prefix+"trace", pprof.Trace)
-				// 	}
-				// 	if config.Monitoring.Metrics.Path != "" {
-				// 		mux.Handle(config.Monitoring.Metrics.Path, promhttp.Handler())
-				// 	}
-				// 	server := &http.Server{Addr: config.Monitoring.Addr, Handler: mux}
-				// 	w.AddNamed(await.ListenAndServe(server), "monitoring")
-				// }
-
-				srcs := map[string]queue.Source{}
-				for k, v := range config.Sources {
-					src, err := v.Configure()
-					if err != nil {
-						return err
-					}
-					srcs[k] = queue.Source{Name: k, Source: src}
-				}
-
-				dsts := map[string]queue.Destination{}
-				for k, v := range config.Destinations {
-					dst, err := v.Configure()
-					if err != nil {
-						return err
-					}
-					dsts[k] = queue.Destination{Name: k, Destination: dst}
-				}
-
-				q := queue.New(queue.WithSources(srcs), queue.WithDestinations(dsts))
-				w.AddNamed(q, "queue")
-				err := w.Run(ctx)
-				slog.Error(fmt.Sprintf("closing: %+v", err))
-				return err
-			})
-		},
-	}
-
-	cmd.Flags().StringVar(&configFile, "config", "config.json", "where to load the configuration from")
-	err := cmd.MarkFlagRequired("config")
-	if err != nil {
-		panic(err)
-	}
-
-	return cmd
+	globals := &Globals{}
+	app := cli.New("reveald", "Log collection and forwarding daemon",
+		cli.WithVersion(version),
+		cli.WithGlobals(globals),
+		cli.WithConfigFlag("config"),
+	)
+	app.AddCommand(
+		cli.Command("run", "Start the reveald daemon", &RunCmd{},
+			cli.WithLong(`Start the reveald daemon with the given configuration.
+Sources collect events (syslog, file, journald, etc.) and destinations
+ship them (S3, RunReveal, MQTT, etc.). All sources and destinations
+run concurrently with graceful shutdown on SIGINT/SIGTERM.`),
+		),
+	)
+	os.Exit(app.Run(context.Background(), os.Args[1:]))
 }

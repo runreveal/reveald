@@ -21,9 +21,9 @@ require (
 	github.com/carlmjohnson/requests v0.23.4
 	github.com/runreveal/kawa v0.2.4-0.20260402053122-a4207087fb00
 	github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c
+	github.com/runreveal/lib/cli v0.0.0-20260407050128-6c664049954d
 	github.com/runreveal/lib/loader v0.0.0-20250907195919-d96a7be32404
 	github.com/segmentio/ksuid v1.0.4
-	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/sjson v1.2.5
 	golang.org/x/sys v0.36.0
@@ -51,12 +51,10 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/encoding v0.5.3 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tailscale/hujson v0.0.0-20250605163823-992244df8c5a // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
