@@ -34,10 +34,13 @@ func (s *MQTT) Recv(ctx context.Context) (kawa.Message[types.Event], func(), err
 	eventMsg := kawa.Message[types.Event]{
 		Key: msg.Key,
 		Value: types.Event{
-			EventTime:  time.Now(),
 			SourceType: "mqtt",
-			RawLog:     msg.Value,
-		}, Topic: msg.Topic,
+			RawLog:     types.RawLogJSON(msg.Value),
+			Normalized: types.Normalized{
+				EventTime: time.Now(),
+			},
+		},
+		Topic:      msg.Topic,
 		Attributes: msg.Attributes,
 	}
 

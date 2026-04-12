@@ -38,14 +38,20 @@ func (s *Source) Recv(ctx context.Context) (kawa.Message[types.Event], func(), e
 	eventTime, logBody := parseCRI(raw)
 	logBody = extractJSON(logBody)
 
-	msg.Value.RawLog = logBody
+	msg.Value.RawLog = types.RawLogJSON(logBody)
 	msg.Value.SourceType = "cri"
+
+	normalized := &msg.Value.Normalized
 	if !eventTime.IsZero() {
-		msg.Value.EventTime = eventTime
+		normalized.EventTime = eventTime
+	}
+
+	if tags := tagsFromPath(msg.Key); tags != nil {
+		normalized.Tags = tags
 	}
 
 	if container := containerFromPath(msg.Key); container != "" {
-		msg.Value.Service.Name = container
+		normalized.Service.Name = container
 	}
 
 	return msg, ack, nil
@@ -113,6 +119,28 @@ func extractJSON(b []byte) []byte {
 
 func isASCIILetter(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+// tagsFromPath extracts namespace and pod name from a K8s pod log path.
+// Path format: /var/log/pods/<namespace>_<pod>_<uid>/<container>/<rotation>.log
+func tagsFromPath(path string) map[string]string {
+	if !strings.Contains(path, "/pods/") {
+		return nil
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) < 7 {
+		return nil
+	}
+	// The pods directory segment: <namespace>_<pod>_<uid>
+	podSegment := parts[len(parts)-3]
+	fields := strings.SplitN(podSegment, "_", 3)
+	if len(fields) < 2 {
+		return nil
+	}
+	return map[string]string{
+		"namespace": fields[0],
+		"pod":       fields[1],
+	}
 }
 
 // containerFromPath extracts the container name from a K8s pod log path.

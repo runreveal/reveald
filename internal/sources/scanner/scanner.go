@@ -32,9 +32,11 @@ func (s *Scanner) Recv(ctx context.Context) (kawa.Message[types.Event], func(), 
 	}
 	return kawa.Message[types.Event]{
 		Value: types.Event{
-			EventTime:  time.Now(),
 			SourceType: "scanner",
-			RawLog:     msg.Value,
+			RawLog:     types.RawLogJSON(msg.Value),
+			Normalized: types.Normalized{
+				EventTime: time.Now(),
+			},
 		},
 	}, ack, nil
 }

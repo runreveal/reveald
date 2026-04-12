@@ -105,10 +105,17 @@ func TestSyslogJSONContent(t *testing.T) {
 				t.Fatalf("failed to receive message: %v", err)
 			}
 
-			// Verify the content
+			// Verify the content — RawLog is now a JSON value.
+			// JSON content passes through as-is; plain text is wrapped as a JSON string.
 			gotContent := string(msg.Value.RawLog)
-			if gotContent != tt.expectedContent {
-				t.Errorf("content mismatch:\nexpected: %q\ngot:      %q", tt.expectedContent, gotContent)
+			wantContent := tt.expectedContent
+			if !json.Valid([]byte(tt.expectedContent)) {
+				// Plain text gets JSON-string-encoded
+				b, _ := json.Marshal(tt.expectedContent)
+				wantContent = string(b)
+			}
+			if gotContent != wantContent {
+				t.Errorf("content mismatch:\nexpected: %q\ngot:      %q", wantContent, gotContent)
 			}
 
 			// Verify source type
@@ -117,7 +124,7 @@ func TestSyslogJSONContent(t *testing.T) {
 			}
 
 			// Verify timestamp is set
-			if msg.Value.EventTime.IsZero() {
+			if msg.Value.Normalized.EventTime.IsZero() {
 				t.Error("event time should not be zero")
 			}
 

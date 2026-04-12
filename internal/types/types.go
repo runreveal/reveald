@@ -7,22 +7,20 @@ import (
 )
 
 type Event struct {
-	SourceType string    `json:"sourceType"`
-	EventTime  time.Time `json:"eventTime,omitempty"`
-	EventName  string    `json:"eventName,omitempty"`
+	SourceType string          `json:"sourceType"`
+	RawLog     json.RawMessage `json:"rawLog"`
+	Normalized Normalized      `json:"normalized"`
+}
 
-	Actor     Actor             `json:"actor,omitempty"`
+type Normalized struct {
+	EventTime time.Time         `json:"eventTime,omitempty"`
+	EventName string            `json:"eventName,omitempty"`
 	Src       Network           `json:"src,omitempty"`
 	Dst       Network           `json:"dst,omitempty"`
+	Actor     Actor             `json:"actor,omitempty"`
 	Service   Service           `json:"service,omitempty"`
 	Tags      map[string]string `json:"tags,omitempty"`
 	ReadOnly  bool              `json:"readOnly,omitempty"`
-	Resources []json.RawMessage `json:"resources,omitempty"`
-
-	// LogFormat describes the format of the log and indicates to the sourceType
-	// how to parse the raw log.  e.g. "jsonl/normalized"
-	LogFormat string `json:"logFormat"`
-	RawLog    []byte `json:"rawLog"`
 }
 
 type Actor struct {
@@ -38,4 +36,15 @@ type Network struct {
 
 type Service struct {
 	Name string `json:"name,omitempty"`
+}
+
+// RawLogJSON ensures data is valid JSON for the rawLog field.
+// If data is already valid JSON, it is returned as-is.
+// Otherwise, it is marshaled as a JSON string.
+func RawLogJSON(data []byte) json.RawMessage {
+	if json.Valid(data) {
+		return json.RawMessage(data)
+	}
+	b, _ := json.Marshal(string(data))
+	return json.RawMessage(b)
 }

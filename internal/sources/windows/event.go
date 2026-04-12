@@ -223,8 +223,13 @@ func (evt *Event) ToGeneric() (*types.Event, error) {
 		return nil, err
 	}
 	return &types.Event{
-		EventTime:  evt.System.TimeCreated.SystemTime,
 		SourceType: "eventlog",
-		RawLog:     rawLog,
+		RawLog:     json.RawMessage(rawLog),
+		Normalized: types.Normalized{
+			EventTime: evt.System.TimeCreated.SystemTime,
+			EventName: evt.System.EventID,
+			Service:   types.Service{Name: evt.System.Provider.Name},
+			Actor:     types.Actor{ID: evt.System.Security.UserID},
+		},
 	}, nil
 }

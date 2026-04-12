@@ -149,14 +149,23 @@ loop:
 			continue
 		}
 
+		tags := make(map[string]string)
+		if log.Hostname != "" {
+			tags["hostname"] = log.Hostname
+		}
+
 		wg.Add(1)
 		select {
 		case s.msgC <- kawa.MsgAck[types.Event]{
 			Msg: kawa.Message[types.Event]{
 				Value: types.Event{
-					EventTime:  ts,
 					SourceType: "journald",
 					RawLog:     bts,
+					Normalized: types.Normalized{
+						EventTime: ts,
+						Service:   types.Service{Name: log.SyslogIdentifier},
+						Tags:      tags,
+					},
 				},
 			},
 			Ack: func() {

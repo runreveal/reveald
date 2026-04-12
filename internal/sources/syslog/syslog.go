@@ -67,7 +67,7 @@ func (s *SyslogSource) Recv(ctx context.Context) (kawa.Message[types.Event], fun
 	select {
 	case logParts := <-s.syslogPartsC:
 		if content, ok := logParts["content"]; ok {
-			rawLog := []byte(content.(string))
+			rawLog := types.RawLogJSON([]byte(content.(string)))
 
 			ts := time.Now().UTC()
 			if timestamp, ok := logParts["timestamp"]; ok {
@@ -76,11 +76,21 @@ func (s *SyslogSource) Recv(ctx context.Context) (kawa.Message[types.Event], fun
 				}
 			}
 
+			var serviceName string
+			if tag, ok := logParts["tag"]; ok {
+				if s, ok := tag.(string); ok {
+					serviceName = s
+				}
+			}
+
 			msg := kawa.Message[types.Event]{
 				Value: types.Event{
-					EventTime:  ts,
 					SourceType: "syslog",
 					RawLog:     rawLog,
+					Normalized: types.Normalized{
+						EventTime: ts,
+						Service:   types.Service{Name: serviceName},
+					},
 				},
 			}
 			return msg, nil, nil

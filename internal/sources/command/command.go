@@ -132,9 +132,12 @@ func (s *Command) recvLoop(ctx context.Context) error {
 			msgAck := kawa.MsgAck[types.Event]{
 				Msg: kawa.Message[types.Event]{
 					Value: types.Event{
-						EventTime:  time.Now(),
 						SourceType: "command",
-						RawLog:     rawLog,
+						RawLog:     types.RawLogJSON(rawLog),
+						Normalized: types.Normalized{
+							EventTime: time.Now(),
+							Service:   types.Service{Name: s.cmd},
+						},
 					},
 				},
 			}
