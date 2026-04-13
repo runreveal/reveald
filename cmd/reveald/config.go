@@ -27,6 +27,7 @@ import (
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
+	"github.com/runreveal/reveald/internal/sources/refiner"
 	"github.com/runreveal/reveald/internal/sources/windows"
 	"github.com/runreveal/reveald/internal/types"
 	// We could register and configure these in their own package
@@ -63,6 +64,9 @@ func init() {
 	})
 	loader.Register("eventlog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &EventLogConfig{}
+	})
+	loader.Register("refine", func() loader.Builder[kawa.Source[types.Event]] {
+		return &refiner.Config{}
 	})
 
 	// ---------------Destinations-------------------------

@@ -94,7 +94,7 @@ func (g *Globals) Validate() error {
 
 func (g *Globals) ExtraHelp() string {
 	return "\nAvailable source types:\n" +
-		"  scanner, file, cri, command, syslog, nginx_syslog, journald, mqtt, eventlog\n" +
+		"  scanner, file, cri, command, syslog, nginx_syslog, journald, mqtt, eventlog, refine\n" +
 		"\nAvailable destination types:\n" +
 		"  printer, s3, s3b, runreveal, mqtt\n"
 }
