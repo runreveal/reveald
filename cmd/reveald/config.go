@@ -23,6 +23,7 @@ import (
 	"github.com/runreveal/reveald/internal/sources/cri"
 	"github.com/runreveal/reveald/internal/sources/file"
 	"github.com/runreveal/reveald/internal/sources/journald"
+	"github.com/runreveal/reveald/internal/sources/kvparser"
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/refiner"
@@ -65,6 +66,9 @@ func init() {
 	})
 	loader.Register("eventlog", func() loader.Builder[kawa.Source[types.Event]] {
 		return &EventLogConfig{}
+	})
+	loader.Register("kv", func() loader.Builder[kawa.Source[types.Event]] {
+		return &kvparser.Config{}
 	})
 	loader.Register("refine", func() loader.Builder[kawa.Source[types.Event]] {
 		return &refiner.Config{}
