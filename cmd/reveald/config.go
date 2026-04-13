@@ -26,6 +26,7 @@ import (
 	mqttSrckawad "github.com/runreveal/reveald/internal/sources/mqtt"
 	nginx_syslog "github.com/runreveal/reveald/internal/sources/nginx-syslog"
 	"github.com/runreveal/reveald/internal/sources/refiner"
+	"github.com/runreveal/reveald/internal/sources/regexparser"
 	"github.com/runreveal/reveald/internal/sources/scanner"
 	"github.com/runreveal/reveald/internal/sources/syslog"
 	"github.com/runreveal/reveald/internal/sources/windows"
@@ -67,6 +68,9 @@ func init() {
 	})
 	loader.Register("refine", func() loader.Builder[kawa.Source[types.Event]] {
 		return &refiner.Config{}
+	})
+	loader.Register("regex", func() loader.Builder[kawa.Source[types.Event]] {
+		return &regexparser.Config{}
 	})
 
 	// ---------------Destinations-------------------------
