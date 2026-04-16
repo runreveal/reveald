@@ -70,6 +70,8 @@ github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjR
 github.com/rogpeppe/go-internal v1.10.0/go.mod h1:UQnix2H7Ngw/k4C5ijL5+65zddjncjaFoBhdsK/akog=
 github.com/runreveal/kawa v0.2.4-0.20260402053122-a4207087fb00 h1:rh6KgIFZHgKPS+d+eJM5v7iJKvMgqxzr2a24CiJDrtQ=
 github.com/runreveal/kawa v0.2.4-0.20260402053122-a4207087fb00/go.mod h1:CCLVlTR7O0eqpQGju6hmuSSMKFYdlM9Sdns1N2h1VW0=
+github.com/runreveal/kawa v0.2.4-0.20260416024739-9c856d848e60 h1:mn1Ky7X1/I9gV3QasIPVpdeX1hq5Hmb7ugn/kPURu/o=
+github.com/runreveal/kawa v0.2.4-0.20260416024739-9c856d848e60/go.mod h1:CCLVlTR7O0eqpQGju6hmuSSMKFYdlM9Sdns1N2h1VW0=
 github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c h1:rZt9vvUOA1CstxYueKfaAU7zcLx5PyMSECtJGscP8wo=
 github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c/go.mod h1:qnRPgJExa5ziREWvAhSDMMTBSxBk9wX4D2xZBUBldmw=
 github.com/runreveal/lib/cli v0.0.0-20260407050128-6c664049954d h1:VsRgsD4DJnQrB4FMa7dLbEuspgyvi34BfrR9N6KNj1w=
