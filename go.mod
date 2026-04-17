@@ -19,7 +19,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.18.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.85.0
 	github.com/carlmjohnson/requests v0.23.4
-	github.com/runreveal/kawa v0.2.4-0.20260416024739-9c856d848e60
+	github.com/runreveal/kawa v0.3.0
 	github.com/runreveal/lib/await v0.0.0-20231128193746-50c2ad68891c
 	github.com/runreveal/lib/cli v0.0.0-20260407050128-6c664049954d
 	github.com/runreveal/lib/loader v0.0.0-20250907195919-d96a7be32404
