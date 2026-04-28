@@ -228,9 +228,7 @@ func parseKV(input string, sep string) map[string]string {
 	}
 
 	result := make(map[string]string)
-	i := 0
 	n := len(input)
-	prefixEnd := -1
 
 	// Find the first occurrence of sep to determine where kv pairs start.
 	// Everything before the key of the first pair is the prefix.
@@ -250,9 +248,7 @@ func parseKV(input string, sep string) map[string]string {
 			result["_prefix"] = prefix
 		}
 	}
-	prefixEnd = keyStart
-	_ = prefixEnd
-	i = keyStart
+	i := keyStart
 
 	for i < n {
 		// Skip whitespace between pairs.
