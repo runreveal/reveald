@@ -134,21 +134,19 @@ func (s *NginxSyslogSource) recvLoop(ctx context.Context) error {
 					Value: types.Event{
 						SourceType: "nginx-syslog",
 						RawLog:     json.RawMessage(log),
-						Normalized: types.Normalized{
-							EventTime: ts,
-							Src: types.Network{
-								IP: ip,
-							},
-							Actor: types.Actor{
-								Username: entry.RemoteUser,
-							},
-							Tags: map[string]string{
-								"request":         entry.Request,
-								"status":          entry.Status,
-								"body_bytes":      entry.BodyBytesSent,
-								"http_referer":    entry.HttpReferer,
-								"http_user_agent": entry.HttpUserAgent,
-							},
+						EventTime:  ts,
+						Src: types.Network{
+							IP: ip,
+						},
+						Actor: types.Actor{
+							Username: entry.RemoteUser,
+						},
+						Tags: map[string]string{
+							"request":         entry.Request,
+							"status":          entry.Status,
+							"body_bytes":      entry.BodyBytesSent,
+							"http_referer":    entry.HttpReferer,
+							"http_user_agent": entry.HttpUserAgent,
 						},
 					},
 				}

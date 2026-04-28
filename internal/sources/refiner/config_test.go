@@ -101,11 +101,11 @@ func TestConfigUnmarshalAndPipeline(t *testing.T) {
 	if msg1.Value.SourceType != "coredns" {
 		t.Errorf("event 1: sourceType = %q, want coredns", msg1.Value.SourceType)
 	}
-	if msg1.Value.Normalized.Service.Name != "coredns" {
-		t.Errorf("event 1: service.name = %q, want coredns", msg1.Value.Normalized.Service.Name)
+	if msg1.Value.Service.Name != "coredns" {
+		t.Errorf("event 1: service.name = %q, want coredns", msg1.Value.Service.Name)
 	}
-	if msg1.Value.Normalized.EventName != "query from 10.0.0.1" {
-		t.Errorf("event 1: eventName = %q", msg1.Value.Normalized.EventName)
+	if msg1.Value.EventName != "query from 10.0.0.1" {
+		t.Errorf("event 1: eventName = %q", msg1.Value.EventName)
 	}
 
 	// Event 2: sshd — no match, should pass through as "test"
@@ -116,8 +116,8 @@ func TestConfigUnmarshalAndPipeline(t *testing.T) {
 	if msg2.Value.SourceType != "test" {
 		t.Errorf("event 2: sourceType = %q, want test", msg2.Value.SourceType)
 	}
-	if msg2.Value.Normalized.Service.Name != "" {
-		t.Errorf("event 2: service.name = %q, want empty", msg2.Value.Normalized.Service.Name)
+	if msg2.Value.Service.Name != "" {
+		t.Errorf("event 2: service.name = %q, want empty", msg2.Value.Service.Name)
 	}
 
 	// Event 3: coredns again — should be refined
@@ -184,7 +184,7 @@ func TestConfigNestedSourceType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if msg.Value.Normalized.Tags["app"] != "hello" {
-		t.Errorf("tags.app = %q, want hello", msg.Value.Normalized.Tags["app"])
+	if msg.Value.Tags["app"] != "hello" {
+		t.Errorf("tags.app = %q, want hello", msg.Value.Tags["app"])
 	}
 }

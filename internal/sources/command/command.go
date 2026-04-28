@@ -134,10 +134,8 @@ func (s *Command) recvLoop(ctx context.Context) error {
 					Value: types.Event{
 						SourceType: "command",
 						RawLog:     types.RawLogJSON(rawLog),
-						Normalized: types.Normalized{
-							EventTime: time.Now(),
-							Service:   types.Service{Name: s.cmd},
-						},
+						EventTime:  time.Now(),
+						Service:    types.Service{Name: s.cmd},
 					},
 				},
 			}

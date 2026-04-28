@@ -161,11 +161,9 @@ loop:
 				Value: types.Event{
 					SourceType: "journald",
 					RawLog:     bts,
-					Normalized: types.Normalized{
-						EventTime: ts,
-						Service:   types.Service{Name: log.SyslogIdentifier},
-						Tags:      tags,
-					},
+					EventTime:  ts,
+					Service:    types.Service{Name: log.SyslogIdentifier},
+					Tags:       tags,
 				},
 			},
 			Ack: func() {

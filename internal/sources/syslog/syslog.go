@@ -87,10 +87,8 @@ func (s *SyslogSource) Recv(ctx context.Context) (kawa.Message[types.Event], fun
 				Value: types.Event{
 					SourceType: "syslog",
 					RawLog:     rawLog,
-					Normalized: types.Normalized{
-						EventTime: ts,
-						Service:   types.Service{Name: serviceName},
-					},
+					EventTime:  ts,
+					Service:    types.Service{Name: serviceName},
 				},
 			}
 			return msg, nil, nil

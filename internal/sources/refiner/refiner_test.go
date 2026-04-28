@@ -115,7 +115,7 @@ func TestRefiner(t *testing.T) {
 			event: types.Event{
 				SourceType: "journald",
 				RawLog:     rawJSON(t, map[string]any{"SYSLOG_IDENTIFIER": "coredns"}),
-				Normalized: types.Normalized{Service: types.Service{Name: "coredns"}},
+				Service:    types.Service{Name: "coredns"},
 			},
 			check: func(t *testing.T, e types.Event) {
 				if e.SourceType != "coredns" {
@@ -136,8 +136,8 @@ func TestRefiner(t *testing.T) {
 				RawLog:     rawJSON(t, map[string]any{"SYSLOG_IDENTIFIER": "sshd"}),
 			},
 			check: func(t *testing.T, e types.Event) {
-				if e.Normalized.Service.Name != "sshd" {
-					t.Errorf("service.name = %q, want sshd", e.Normalized.Service.Name)
+				if e.Service.Name != "sshd" {
+					t.Errorf("service.name = %q, want sshd", e.Service.Name)
 				}
 			},
 		},
@@ -172,8 +172,8 @@ func TestRefiner(t *testing.T) {
 				RawLog:     rawJSON(t, map[string]any{"MESSAGE": "DROP IN=eth0"}),
 			},
 			check: func(t *testing.T, e types.Event) {
-				if e.Normalized.Tags["action"] != "DROP IN=eth0" {
-					t.Errorf("tags.action = %q", e.Normalized.Tags["action"])
+				if e.Tags["action"] != "DROP IN=eth0" {
+					t.Errorf("tags.action = %q", e.Tags["action"])
 				}
 			},
 		},
@@ -190,8 +190,8 @@ func TestRefiner(t *testing.T) {
 				RawLog:     rawJSON(t, map[string]any{"special_field": "yes"}),
 			},
 			check: func(t *testing.T, e types.Event) {
-				if e.Normalized.Tags["found"] != "yes" {
-					t.Errorf("tags.found = %q, want yes", e.Normalized.Tags["found"])
+				if e.Tags["found"] != "yes" {
+					t.Errorf("tags.found = %q, want yes", e.Tags["found"])
 				}
 			},
 		},
@@ -257,7 +257,7 @@ func TestRefiner(t *testing.T) {
 				if e.SourceType != "coredns" {
 					t.Errorf("sourceType = %q, want coredns", e.SourceType)
 				}
-				if _, ok := e.Normalized.Tags["catchall"]; ok {
+				if _, ok := e.Tags["catchall"]; ok {
 					t.Error("catchall tag should not be set (first match wins)")
 				}
 			},
@@ -284,17 +284,17 @@ func TestRefiner(t *testing.T) {
 				}),
 			},
 			check: func(t *testing.T, e types.Event) {
-				if e.Normalized.Src.IP != netip.MustParseAddr("192.168.1.100") {
-					t.Errorf("src.ip = %v", e.Normalized.Src.IP)
+				if e.Src.IP != netip.MustParseAddr("192.168.1.100") {
+					t.Errorf("src.ip = %v", e.Src.IP)
 				}
-				if e.Normalized.Src.Port != 43210 {
-					t.Errorf("src.port = %d", e.Normalized.Src.Port)
+				if e.Src.Port != 43210 {
+					t.Errorf("src.port = %d", e.Src.Port)
 				}
-				if e.Normalized.Dst.IP != netip.MustParseAddr("10.0.0.1") {
-					t.Errorf("dst.ip = %v", e.Normalized.Dst.IP)
+				if e.Dst.IP != netip.MustParseAddr("10.0.0.1") {
+					t.Errorf("dst.ip = %v", e.Dst.IP)
 				}
-				if e.Normalized.Dst.Port != 22 {
-					t.Errorf("dst.port = %d", e.Normalized.Dst.Port)
+				if e.Dst.Port != 22 {
+					t.Errorf("dst.port = %d", e.Dst.Port)
 				}
 			},
 		},
@@ -318,17 +318,17 @@ func TestRefiner(t *testing.T) {
 				}),
 			},
 			check: func(t *testing.T, e types.Event) {
-				if e.Normalized.Actor.ID != "usr_123" {
-					t.Errorf("actor.id = %q", e.Normalized.Actor.ID)
+				if e.Actor.ID != "usr_123" {
+					t.Errorf("actor.id = %q", e.Actor.ID)
 				}
-				if e.Normalized.Actor.Email != "a@b.com" {
-					t.Errorf("actor.email = %q", e.Normalized.Actor.Email)
+				if e.Actor.Email != "a@b.com" {
+					t.Errorf("actor.email = %q", e.Actor.Email)
 				}
-				if e.Normalized.Actor.Username != "alice" {
-					t.Errorf("actor.username = %q", e.Normalized.Actor.Username)
+				if e.Actor.Username != "alice" {
+					t.Errorf("actor.username = %q", e.Actor.Username)
 				}
-				if e.Normalized.EventName != "login" {
-					t.Errorf("eventName = %q", e.Normalized.EventName)
+				if e.EventName != "login" {
+					t.Errorf("eventName = %q", e.EventName)
 				}
 			},
 		},
@@ -362,11 +362,11 @@ func TestRefiner(t *testing.T) {
 				RawLog:     rawJSON(t, map[string]any{"type": "test", "action": "do_thing"}),
 			},
 			check: func(t *testing.T, e types.Event) {
-				if e.Normalized.Service.Name != "" {
-					t.Errorf("service.name = %q, want empty", e.Normalized.Service.Name)
+				if e.Service.Name != "" {
+					t.Errorf("service.name = %q, want empty", e.Service.Name)
 				}
-				if e.Normalized.EventName != "do_thing" {
-					t.Errorf("eventName = %q, want do_thing", e.Normalized.EventName)
+				if e.EventName != "do_thing" {
+					t.Errorf("eventName = %q, want do_thing", e.EventName)
 				}
 			},
 		},

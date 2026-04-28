@@ -124,7 +124,7 @@ func TestSyslogJSONContent(t *testing.T) {
 			}
 
 			// Verify timestamp is set
-			if msg.Value.Normalized.EventTime.IsZero() {
+			if msg.Value.EventTime.IsZero() {
 				t.Error("event time should not be zero")
 			}
 

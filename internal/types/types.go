@@ -7,20 +7,16 @@ import (
 )
 
 type Event struct {
-	SourceType string          `json:"sourceType"`
-	RawLog     json.RawMessage `json:"rawLog"`
-	Normalized Normalized      `json:"normalized"`
-}
-
-type Normalized struct {
-	EventTime time.Time         `json:"eventTime,omitempty"`
-	EventName string            `json:"eventName,omitempty"`
-	Src       Network           `json:"src,omitempty"`
-	Dst       Network           `json:"dst,omitempty"`
-	Actor     Actor             `json:"actor,omitempty"`
-	Service   Service           `json:"service,omitempty"`
-	Tags      map[string]string `json:"tags,omitempty"`
-	ReadOnly  bool              `json:"readOnly,omitempty"`
+	SourceType string            `json:"sourceType"`
+	RawLog     json.RawMessage   `json:"rawLog"`
+	EventTime  time.Time         `json:"eventTime,omitempty"`
+	EventName  string            `json:"eventName,omitempty"`
+	Src        Network           `json:"src,omitempty"`
+	Dst        Network           `json:"dst,omitempty"`
+	Actor      Actor             `json:"actor,omitempty"`
+	Service    Service           `json:"service,omitempty"`
+	Tags       map[string]string `json:"tags,omitempty"`
+	ReadOnly   bool              `json:"readOnly,omitempty"`
 }
 
 type Actor struct {

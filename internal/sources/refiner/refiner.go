@@ -1,6 +1,6 @@
 // Package refiner provides a middleware that wraps any kawa.Source[types.Event]
 // and applies configurable extraction rules to refine events — setting specific
-// sourceTypes and extracting fields from rawLog into the Normalized struct.
+// sourceTypes and extracting fields from rawLog into Event fields.
 //
 // The refiner operates on events that already have baseline normalization from
 // their source. It adds detail, not replaces it.
@@ -36,7 +36,7 @@ import (
 type Rule struct {
 	// Match is a list of conditions that must ALL be true for this rule to apply.
 	Match []Condition `json:"match"`
-	// Extract maps fields from the event into Normalized fields or sourceType.
+	// Extract maps fields from the event into structured fields or sourceType.
 	Extract []Extraction `json:"extract,omitempty"`
 }
 
@@ -166,7 +166,7 @@ func resolveRead(event *types.Event, path string) string {
 
 	if strings.HasPrefix(path, "normalized.") {
 		field := strings.TrimPrefix(path, "normalized.")
-		return getNormalized(&event.Normalized, field)
+		return getNormalized(event, field)
 	}
 
 	return ""
@@ -188,89 +188,89 @@ func setField(event *types.Event, path string, val string) {
 		event.SourceType = val
 		return
 	}
-	setNormalized(&event.Normalized, path, val)
+	setNormalized(event, path, val)
 }
 
-// getNormalized reads a field from the Normalized struct by dot-path.
-func getNormalized(n *types.Normalized, path string) string {
+// getNormalized reads a field from the Event by dot-path.
+func getNormalized(e *types.Event, path string) string {
 	switch path {
 	case "eventName":
-		return n.EventName
+		return e.EventName
 	case "src.ip":
-		if n.Src.IP.IsValid() {
-			return n.Src.IP.String()
+		if e.Src.IP.IsValid() {
+			return e.Src.IP.String()
 		}
 		return ""
 	case "src.port":
-		if n.Src.Port != 0 {
-			return strconv.FormatUint(uint64(n.Src.Port), 10)
+		if e.Src.Port != 0 {
+			return strconv.FormatUint(uint64(e.Src.Port), 10)
 		}
 		return ""
 	case "dst.ip":
-		if n.Dst.IP.IsValid() {
-			return n.Dst.IP.String()
+		if e.Dst.IP.IsValid() {
+			return e.Dst.IP.String()
 		}
 		return ""
 	case "dst.port":
-		if n.Dst.Port != 0 {
-			return strconv.FormatUint(uint64(n.Dst.Port), 10)
+		if e.Dst.Port != 0 {
+			return strconv.FormatUint(uint64(e.Dst.Port), 10)
 		}
 		return ""
 	case "service.name":
-		return n.Service.Name
+		return e.Service.Name
 	case "actor.id":
-		return n.Actor.ID
+		return e.Actor.ID
 	case "actor.email":
-		return n.Actor.Email
+		return e.Actor.Email
 	case "actor.username":
-		return n.Actor.Username
+		return e.Actor.Username
 	default:
 		if strings.HasPrefix(path, "tags.") {
 			key := strings.TrimPrefix(path, "tags.")
-			if n.Tags != nil {
-				return n.Tags[key]
+			if e.Tags != nil {
+				return e.Tags[key]
 			}
 		}
 	}
 	return ""
 }
 
-// setNormalized writes a value to the Normalized struct by dot-path.
-func setNormalized(n *types.Normalized, path string, val string) {
+// setNormalized writes a value to the Event by dot-path.
+func setNormalized(e *types.Event, path string, val string) {
 	switch path {
 	case "eventName":
-		n.EventName = val
+		e.EventName = val
 	case "src.ip":
 		if addr, err := netip.ParseAddr(val); err == nil {
-			n.Src.IP = addr
+			e.Src.IP = addr
 		}
 	case "src.port":
 		if p, err := strconv.ParseUint(val, 10, 32); err == nil {
-			n.Src.Port = uint(p)
+			e.Src.Port = uint(p)
 		}
 	case "dst.ip":
 		if addr, err := netip.ParseAddr(val); err == nil {
-			n.Dst.IP = addr
+			e.Dst.IP = addr
 		}
 	case "dst.port":
 		if p, err := strconv.ParseUint(val, 10, 32); err == nil {
-			n.Dst.Port = uint(p)
+			e.Dst.Port = uint(p)
 		}
 	case "service.name":
-		n.Service.Name = val
+		e.Service.Name = val
 	case "actor.id":
-		n.Actor.ID = val
+		e.Actor.ID = val
 	case "actor.email":
-		n.Actor.Email = val
+		e.Actor.Email = val
 	case "actor.username":
-		n.Actor.Username = val
+		e.Actor.Username = val
 	default:
 		if strings.HasPrefix(path, "tags.") {
 			key := strings.TrimPrefix(path, "tags.")
-			if n.Tags == nil {
-				n.Tags = make(map[string]string)
+			if e.Tags == nil {
+				e.Tags = make(map[string]string)
 			}
-			n.Tags[key] = val
+			e.Tags[key] = val
 		} else {
 			slog.Warn("refiner: unknown target path", "path", path)
 		}

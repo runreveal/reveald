@@ -41,17 +41,16 @@ func (s *Source) Recv(ctx context.Context) (kawa.Message[types.Event], func(), e
 	msg.Value.RawLog = types.RawLogJSON(logBody)
 	msg.Value.SourceType = "cri"
 
-	normalized := &msg.Value.Normalized
 	if !eventTime.IsZero() {
-		normalized.EventTime = eventTime
+		msg.Value.EventTime = eventTime
 	}
 
 	if tags := tagsFromPath(msg.Key); tags != nil {
-		normalized.Tags = tags
+		msg.Value.Tags = tags
 	}
 
 	if container := containerFromPath(msg.Key); container != "" {
-		normalized.Service.Name = container
+		msg.Value.Service.Name = container
 	}
 
 	return msg, ack, nil

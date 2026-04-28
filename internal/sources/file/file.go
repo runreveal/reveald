@@ -229,10 +229,8 @@ func (s *Watcher) recvLoop(ctx context.Context) error {
 				Value: types.Event{
 					SourceType: "file",
 					RawLog:     types.RawLogJSON(b),
-					Normalized: types.Normalized{
-						EventTime: time.Now(),
-						Tags:      map[string]string{"file": fname},
-					},
+					EventTime:  time.Now(),
+					Tags:       map[string]string{"file": fname},
 				},
 			}
 			select {
