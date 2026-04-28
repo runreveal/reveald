@@ -244,17 +244,21 @@ func (c *PrinterConfig) Configure() (kawa.Destination[types.Event], error) {
 }
 
 type RunRevealConfig struct {
-	WebhookURL string        `json:"webhookURL"`
-	BatchSize  int           `json:"batchSize"`
-	FlushFreq  time.Duration `json:"flushFreq"`
+	WebhookURL    string        `json:"webhookURL"`
+	BatchSize     int           `json:"batchSize"`
+	FlushFreq     time.Duration `json:"flushFreq"`
+	FormatVersion int           `json:"formatVersion"`
 }
 
 func (c *RunRevealConfig) Configure() (kawa.Destination[types.Event], error) {
-	slog.Info("configuring runreveal")
+	slog.Info("configuring runreveal",
+		"formatVersion", c.FormatVersion,
+	)
 	return runreveal.New(
 		runreveal.WithWebhookURL(c.WebhookURL),
 		runreveal.WithBatchSize(c.BatchSize),
 		runreveal.WithFlushFrequency(c.FlushFreq),
+		runreveal.WithFormatVersion(c.FormatVersion),
 	), nil
 }
 

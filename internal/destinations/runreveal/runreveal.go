@@ -41,14 +41,21 @@ func WithFlushFrequency(t time.Duration) Option {
 	}
 }
 
+func WithFormatVersion(v int) Option {
+	return func(r *RunReveal) {
+		r.formatVersion = v
+	}
+}
+
 type RunReveal struct {
 	httpc   *http.Client
 	batcher *batch.Destination[types.Event]
 
-	batchSize  int
-	flushFreq  time.Duration
-	webhookURL string
-	reqConf    requests.Config
+	batchSize     int
+	flushFreq     time.Duration
+	webhookURL    string
+	formatVersion int // 0 = legacy, 1 = native
+	reqConf       requests.Config
 }
 
 func New(opts ...Option) *RunReveal {
@@ -91,7 +98,11 @@ func (r *RunReveal) Run(ctx context.Context) error {
 	return r.batcher.Run(ctx)
 }
 
-func (r *RunReveal) Send(ctx context.Context, ack func(), msg kawa.Message[types.Event]) error {
+func (r *RunReveal) Send(
+	ctx context.Context,
+	ack func(),
+	msg kawa.Message[types.Event],
+) error {
 	return r.batcher.Send(ctx, ack, msg)
 }
 
@@ -99,25 +110,78 @@ func (r *RunReveal) newReq() *requests.Builder {
 	return requests.New(r.reqConf)
 }
 
-// Flush sends the given messages of type kawa.Message[type.Event] to the RunReveal api
-func (r *RunReveal) Flush(ctx context.Context, msgs []kawa.Message[types.Event]) error {
-
-	batch := make([]json.RawMessage, len(msgs))
-	var err error
-	for i, msg := range msgs {
-		batch[i], err = json.Marshal(msg.Value)
+// Flush sends a batch of events to the RunReveal API.
+func (r *RunReveal) Flush(
+	ctx context.Context,
+	msgs []kawa.Message[types.Event],
+) error {
+	batch := make([]json.RawMessage, 0, len(msgs))
+	for _, msg := range msgs {
+		var raw []byte
+		var err error
+		if r.formatVersion >= 1 {
+			raw, err = json.Marshal(msg.Value)
+		} else {
+			raw, err = json.Marshal(toLegacy(msg.Value))
+		}
 		if err != nil {
 			slog.Error("error marshalling event", "err", err)
 			continue
 		}
+		batch = append(batch, raw)
 	}
 
-	// Send events to the webhookURL using POST
-	err = r.newReq().BodyJSON(batch).Fetch(ctx)
+	if len(batch) == 0 {
+		return nil
+	}
+
+	err := r.newReq().BodyJSON(batch).Fetch(ctx)
 	if err != nil {
 		slog.Error("error sending batch to runreveal", "err", err)
 		return err
 	}
-	// TODO: retries
 	return nil
+}
+
+// legacyEvent is the v0 wire format expected by older backends.
+type legacyEvent struct {
+	Timestamp   time.Time         `json:"ts"`
+	SourceType  string            `json:"sourceType"`
+	ContentType string            `json:"contentType"`
+	EventTime   time.Time         `json:"eventTime,omitempty"`
+	EventName   string            `json:"eventName,omitempty"`
+	RawLog      []byte            `json:"rawLog"`
+	Src         legacyNetwork     `json:"src"`
+	Dst         legacyNetwork     `json:"dst"`
+	Service     types.Service     `json:"service"`
+	Tags        map[string]string `json:"tags,omitempty"`
+}
+
+type legacyNetwork struct {
+	IP   string `json:"ip"`
+	Port uint   `json:"port,omitempty"`
+}
+
+func toLegacy(e types.Event) legacyEvent {
+	now := time.Now().UTC()
+	srcIP := ""
+	if e.Src.IP.IsValid() {
+		srcIP = e.Src.IP.String()
+	}
+	dstIP := ""
+	if e.Dst.IP.IsValid() {
+		dstIP = e.Dst.IP.String()
+	}
+	return legacyEvent{
+		Timestamp:   now,
+		SourceType:  e.SourceType,
+		ContentType: "application/json",
+		EventTime:   e.EventTime,
+		EventName:   e.EventName,
+		RawLog:      []byte(e.RawLog),
+		Src:         legacyNetwork{IP: srcIP, Port: e.Src.Port},
+		Dst:         legacyNetwork{IP: dstIP, Port: e.Dst.Port},
+		Service:     e.Service,
+		Tags:        e.Tags,
+	}
 }
